@@ -1,0 +1,15 @@
+[Unit]
+Description=Retro Launcher Service
+After=multi-user.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/retro-launcher
+Environment=SDL_VIDEODRIVER=kmsdrm
+ExecStart=/home/pi/retro-launcher/retro-launcher
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

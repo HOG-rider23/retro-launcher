@@ -1,0 +1,12 @@
+rm_boost=1
+dtparam=i2c_arm=off
+gpu_mem=16
+
+# 3.5inch DPI LCD (640x480) - official for Pi Zero 2 W / Trixie
+dtoverlay=vc4-kms-v3d
+dtoverlay=waveshare-35dpi
+dtoverlay=waveshare-touch-35dpi
+
+# MCP23017 I²C (software bus on the two free NC pins)
+dtoverlay=i2c-gpio,i2c_gpio_sda=19,i2c_gpio_scl=26
+
