@@ -60,6 +60,7 @@ update_config_file "$PROJECT_DIR/config/boot/firmware/cmdline.txt" "/boot/firmwa
 update_config_file "$PROJECT_DIR/config/etc/udev/rules.d/99-waveshare-touch.rules" "/etc/udev/rules.d/99-waveshare-touch.rules"
 
 # 4. Build the project
+cd "$PROJECT_DIR/src"
 echo "→ Building with make ($BUILD_JOBS jobs)..."
 make clean || true          # safe if no clean target
 make -j"$BUILD_JOBS"

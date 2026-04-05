@@ -40,6 +40,48 @@ install_if_missing "libsdl2-dev"
 install_if_missing "libsdl2-image-dev"
 install_if_missing "libsdl2-ttf-dev"
 install_if_missing "libsdl2-mixer-dev"
+install_if_missing "python3-smbus2"
+install_if_missing "i2c-tools"
+
+
+# Helper function: ensure i2c-dev kernel module is loaded
+ensure_i2c_dev_module() {
+    if ! lsmod | grep -q '^i2c_dev '; then
+        echo "→ Loading i2c-dev kernel module..."
+        sudo modprobe i2c-dev
+        echo "i2c-dev" | sudo tee -a /etc/modules
+        echo "✓ i2c-dev module loaded and added to /etc/modules"
+    else
+        echo "✓ i2c-dev kernel module is already loaded"
+    fi
+}
+
+echo "Checking i2c-dev kernel module..."
+ensure_i2c_dev_module
+
+# Helper function: ensure Waveshare 3.5-inch DPI DTBO files are available
+ensure_waveshare_dtbo_files() {
+    local dtbo_dir="/boot/firmware/overlays"
+    
+    if ! ls "$dtbo_dir" 2>/dev/null | grep -q -E 'waveshare|35dpi'; then
+        echo "→ Downloading Waveshare 3.5-inch DPI DTBO files..."
+        wget -q https://files.waveshare.com/wiki/3.5inch%20DPI%20LCD/3.5DPI-dtbo.zip -O /tmp/3.5DPI-dtbo.zip
+        
+        echo "→ Extracting DTBO files..."
+        unzip -o /tmp/3.5DPI-dtbo.zip -d /tmp/
+        
+        echo "→ Creating overlays directory and copying DTBO files..."
+        sudo mkdir -p "$dtbo_dir"
+        sudo cp /tmp/3.5DPI-dtbo/*.dtbo "$dtbo_dir/"
+        
+        echo "✓ Waveshare 3.5-inch DPI DTBO files installed"
+    else
+        echo "✓ Waveshare 3.5-inch DPI DTBO files are already available"
+    fi
+}
+
+echo "Checking Waveshare 3.5-inch DPI DTBO files..."
+ensure_waveshare_dtbo_files
 
 echo ""
 echo "✅ Development environment is ready!"
