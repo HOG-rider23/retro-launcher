@@ -16,11 +16,8 @@ declare -a IMPORTANT_FILES=(
     "/boot/firmware/config.txt"
     "/boot/firmware/cmdline.txt"
     "/etc/fstab"
-    "/home/jernej/retro-launcher"
-    "/home/jernej/pi_config_backup.sh"
-    "/home/jernej/disply_3_5_setup.sh"
+    "/home/jernej/repos/retro-launcher"
     "/etc/udev/rules.d/99-waveshare-touch.rules"
-    # Add your own here if needed
 )
 
 BACKUP_BASE_FOLDER="Pi_Config_Backups"
