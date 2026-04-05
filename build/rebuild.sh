@@ -65,9 +65,13 @@ make clean || true          # safe if no clean target
 make -j"$BUILD_JOBS"
 
 
-
 sudo systemctl daemon-reload
-sudo systemctl enable retro-launcher.service
+if sudo systemctl is-enabled --quiet retro-launcher.service; then
+    echo "   retro-launcher.service is already enabled"
+else
+    echo "→ Enabling retro-launcher.service..."
+    sudo systemctl enable retro-launcher.service
+fi
 
 # 5. Deploy the new binary
 echo "→ Installing new binary to $INSTALL_BINARY..."
