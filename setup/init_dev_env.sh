@@ -8,10 +8,6 @@
 
 set -e  # Stop on any error
 
-echo "=== Initializing C++ SDL2 Development Environment ==="
-echo "Running on: $(cat /etc/os-release | grep PRETTY_NAME | cut -d= -f2 | tr -d '\"')"
-echo ""
-
 UPDATE_DONE=false
 
 # Helper function: install package only if missing
@@ -30,19 +26,33 @@ install_if_missing() {
     fi
 }
 
-echo "Checking dependencies..."
+# Helper function: check if git is available
+check_git_available() {
+    if ! command -v git &> /dev/null; then
+        echo "✗ ERROR: git is not installed or not in PATH"
+        echo "Please install git and try again."
+        exit 1
+    else
+        echo "✓ git is available"
+    fi
+}
 
-# Build tools (includes make, g++, cmake, etc.)
-install_if_missing "build-essential"
-
-# SDL2 development libraries (C/C++)
-install_if_missing "libsdl2-dev"
-install_if_missing "libsdl2-image-dev"
-install_if_missing "libsdl2-ttf-dev"
-install_if_missing "libsdl2-mixer-dev"
-install_if_missing "python3-smbus2"
-install_if_missing "i2c-tools"
-
+# Helper function: check if OS is Debian Trixie 13.3
+check_os_version() {
+    local version_codename
+    local debian_version_full
+    
+    version_codename=$(grep '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2)
+    debian_version_full=$(grep '^DEBIAN_VERSION_FULL=' /etc/os-release | cut -d= -f2)
+    
+    if [ "$version_codename" = "trixie" ] && [ "$debian_version_full" = "13.3" ]; then
+        echo "✓ OS is Debian Trixie 13.3"
+    else
+        echo "✗ ERROR: This script requires Debian Trixie 13.3"
+        echo "Detected: $version_codename $debian_version_full"
+        exit 1
+    fi
+}
 
 # Helper function: ensure i2c-dev kernel module is loaded
 ensure_i2c_dev_module() {
@@ -55,9 +65,6 @@ ensure_i2c_dev_module() {
         echo "✓ i2c-dev kernel module is already loaded"
     fi
 }
-
-echo "Checking i2c-dev kernel module..."
-ensure_i2c_dev_module
 
 # Helper function: ensure Waveshare 3.5-inch DPI DTBO files are available
 ensure_waveshare_dtbo_files() {
@@ -79,6 +86,33 @@ ensure_waveshare_dtbo_files() {
         echo "✓ Waveshare 3.5-inch DPI DTBO files are already available"
     fi
 }
+
+echo "=== Initializing C++ SDL2 Development Environment ==="
+echo "Running on: $(cat /etc/os-release | grep PRETTY_NAME | cut -d= -f2 | tr -d '\"')"
+echo ""
+
+echo "Checking git availability..."
+check_git_available
+
+echo "Checking OS version..."
+check_os_version
+
+echo "Checking dependencies..."
+
+# Build tools (includes make, g++, cmake, etc.)
+install_if_missing "build-essential"
+
+# SDL2 development libraries (C/C++)
+install_if_missing "libsdl2-dev"
+install_if_missing "libsdl2-image-dev"
+install_if_missing "libsdl2-ttf-dev"
+install_if_missing "libsdl2-mixer-dev"
+install_if_missing "python3-smbus2"
+install_if_missing "i2c-tools"
+
+
+echo "Checking i2c-dev kernel module..."
+ensure_i2c_dev_module
 
 echo "Checking Waveshare 3.5-inch DPI DTBO files..."
 ensure_waveshare_dtbo_files
