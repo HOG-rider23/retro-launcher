@@ -36,17 +36,33 @@ const uint8_t GPIOA = 0x14;
 int mcp_fd = -1;
 
 bool initMCP() {
-    if (mcp_fd >= 0) return true;
     char path[32];
     snprintf(path, sizeof(path), "/dev/i2c-%d", I2C_BUS);
     mcp_fd = open(path, O_RDWR);
-    if (mcp_fd < 0) { std::cerr << "Failed to open I2C bus\n"; return false; }
-    if (ioctl(mcp_fd, I2C_SLAVE, MCP_ADDR) < 0) {
-        close(mcp_fd); mcp_fd = -1; std::cerr << "Failed to set I2C address\n"; return false;
+    if (mcp_fd < 0) {
+        debug("Failed to open I2C bus");
+        return false;
     }
+    if (ioctl(mcp_fd, I2C_SLAVE, MCP_ADDR) < 0) {
+        close(mcp_fd);
+        mcp_fd = -1;
+        debug("Failed to set I2C address");
+        return false;
+    }
+
+    // === CONFIGURE MCP23017 ===
     uint8_t cfg[2];
-    cfg[0] = IODIRA; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);  // Port A = inputs
-    cfg[0] = IODIRB; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);  // Port B = inputs
+
+    // Port A = all inputs
+    cfg[0] = IODIRA; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
+    // Port B = all inputs
+    cfg[0] = IODIRB; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
+
+    // === ENABLE INTERNAL PULL-UPS (this fixes the constant-pressed issue) ===
+    cfg[0] = 0x0C; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);  // GPPUA  = pull-ups on Port A
+    cfg[0] = 0x0D; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);  // GPPUB  = pull-ups on Port B
+
+    debug("MCP23017 initialized with internal pull-ups");
     return true;
 }
 
@@ -300,7 +316,6 @@ void launchROM(const RomEntry& entry) {
 
     // Safety check
     if (!fs::exists(emulator)) {
-        std::cerr << "ERROR: Emulator not found at " << emulator << std::endl;
         debug("ERROR: Emulator not found at " + emulator);
         return;
     }
