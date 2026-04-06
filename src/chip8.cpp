@@ -100,9 +100,10 @@ public:
     }
 
     void emulateCycle() {
-        if (pc >= 4094) { pc = 0x200; return; }
+        //if (pc >= 4094) { pc = 0x200; return; }
+        uint16_t op = memory[pc] << 8 | memory[pc + 1];
+        pc += 2;
 
-        uint16_t op  = memory[pc] << 8 | memory[pc + 1];
         uint8_t  x   = (op & 0x0F00) >> 8;
         uint8_t  y   = (op & 0x00F0) >> 4;
         uint8_t  n   = op & 0x000F;
