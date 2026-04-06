@@ -63,6 +63,7 @@ public:
 
     bool display[CHIP8_W * CHIP8_H]{};
     bool keypad[16]{};
+    bool display_changed = true;  // Track if display needs redraw
 
     std::mt19937 rng{std::random_device{}()};
 
@@ -108,6 +109,7 @@ public:
                 if (op == 0x00E0) {
                     // CLEAR display
                     std::memset(display, 0, sizeof(display));
+                    display_changed = true;
                 } else if (op == 0x00EE) {
                     // RETURN
                     sp--;
@@ -211,19 +213,20 @@ public:
 
             case 0xD000: {
                 // DRAW sprite at (Vx, Vy) with height n
-                uint8_t vx = V[x] % CHIP8_W;
-                uint8_t vy = V[y] % CHIP8_H;
+                uint8_t vx = V[x];
+                uint8_t vy = V[y];
                 V[0xF] = 0;
 
                 for (int row = 0; row < n; ++row) {
                     uint8_t sprite = memory[I + row];
                     for (int col = 0; col < 8; ++col) {
                         if (sprite & (0x80 >> col)) {
-                            int px = (vx + col) % CHIP8_W;
-                            int py = (vy + row) % CHIP8_H;
+                            int px = (vx + col) & 63;  // Wrap at 64
+                            int py = (vy + row) & 31;  // Wrap at 32
                             int idx = py * CHIP8_W + px;
                             if (display[idx]) V[0xF] = 1;
                             display[idx] ^= 1;
+                            display_changed = true;
                         }
                     }
                 }
@@ -316,9 +319,9 @@ int main(int argc, char** argv) {
     SDL_PauseAudioDevice(dev, 0);
 
     bool quit = false;
-    const int CPU_FREQ = 500;  // CHIP-8 CPU runs at ~500 Hz
+    const int CPU_FREQ = 2000;  // Higher speed for proper Pong gameplay
     const int FRAME_RATE = 60;  // Render at 60 FPS
-    const int CYCLES_PER_FRAME = CPU_FREQ / FRAME_RATE;  // ~8 cycles per frame
+    const int CYCLES_PER_FRAME = CPU_FREQ / FRAME_RATE;  // ~33 cycles per frame
 
     while (!quit) {
         SDL_Event e;
