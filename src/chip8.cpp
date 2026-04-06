@@ -104,13 +104,113 @@ public:
         uint16_t nnn = op & 0x0FFF;
 
         switch (op & 0xF000) {
-            case 0x1000: pc = nnn; break;
-            case 0x6000: V[x] = nn; break;
-            case 0x7000: V[x] += nn; break;
+            case 0x0000:
+                if (op == 0x00E0) {
+                    // CLEAR display
+                    std::memset(display, 0, sizeof(display));
+                } else if (op == 0x00EE) {
+                    // RETURN
+                    sp--;
+                    pc = stack[sp];
+                }
+                break;
 
-            case 0xA000: I = nnn; break;
+            case 0x1000:
+                // JUMP to nnn
+                pc = nnn;
+                break;
+
+            case 0x2000:
+                // CALL subroutine at nnn
+                stack[sp] = pc;
+                sp++;
+                pc = nnn;
+                break;
+
+            case 0x3000:
+                // SKIP if Vx == nn
+                if (V[x] == nn) pc += 2;
+                break;
+
+            case 0x4000:
+                // SKIP if Vx != nn
+                if (V[x] != nn) pc += 2;
+                break;
+
+            case 0x5000:
+                // SKIP if Vx == Vy
+                if (V[x] == V[y]) pc += 2;
+                break;
+
+            case 0x6000:
+                // SET Vx = nn
+                V[x] = nn;
+                break;
+
+            case 0x7000:
+                // ADD Vx += nn
+                V[x] += nn;
+                break;
+
+            case 0x8000: {
+                uint8_t vy = V[y];
+                switch (n) {
+                    case 0x0: V[x] = vy; break;                        // SET Vx = Vy
+                    case 0x1: V[x] |= vy; break;                       // OR
+                    case 0x2: V[x] &= vy; break;                       // AND
+                    case 0x3: V[x] ^= vy; break;                       // XOR
+                    case 0x4: {                                        // ADD Vx += Vy, set VF
+                        uint16_t sum = V[x] + vy;
+                        V[0xF] = (sum > 255) ? 1 : 0;
+                        V[x] = sum & 0xFF;
+                        break;
+                    }
+                    case 0x5: {                                        // SUB Vx -= Vy
+                        V[0xF] = (V[x] > vy) ? 1 : 0;
+                        V[x] -= vy;
+                        break;
+                    }
+                    case 0x6: {                                        // SHR Vx >>= 1
+                        V[0xF] = V[x] & 1;
+                        V[x] >>= 1;
+                        break;
+                    }
+                    case 0x7: {                                        // SUBN Vx = Vy - Vx
+                        V[0xF] = (vy > V[x]) ? 1 : 0;
+                        V[x] = vy - V[x];
+                        break;
+                    }
+                    case 0xE: {                                        // SHL Vx <<= 1
+                        V[0xF] = (V[x] >> 7) & 1;
+                        V[x] <<= 1;
+                        break;
+                    }
+                }
+                break;
+            }
+
+            case 0x9000:
+                // SKIP if Vx != Vy
+                if (V[x] != V[y]) pc += 2;
+                break;
+
+            case 0xA000:
+                // SET I = nnn
+                I = nnn;
+                break;
+
+            case 0xB000:
+                // JUMP to nnn + V0
+                pc = nnn + V[0];
+                break;
+
+            case 0xC000:
+                // SET Vx = random & nn
+                V[x] = (rng() & 0xFF) & nn;
+                break;
 
             case 0xD000: {
+                // DRAW sprite at (Vx, Vy) with height n
                 uint8_t vx = V[x] % CHIP8_W;
                 uint8_t vy = V[y] % CHIP8_H;
                 V[0xF] = 0;
@@ -127,7 +227,51 @@ public:
                 }
                 break;
             }
+
+            case 0xE000: {
+                if (nn == 0x9E) {
+                    // SKIP if key Vx is pressed
+                    if (keypad[V[x] & 0xF]) pc += 2;
+                } else if (nn == 0xA1) {
+                    // SKIP if key Vx is NOT pressed
+                    if (!keypad[V[x] & 0xF]) pc += 2;
+                }
+                break;
+            }
+
+            case 0xF000: {
+                switch (nn) {
+                    case 0x07: V[x] = delay_timer; break;              // SET Vx = delay_timer
+                    case 0x15: delay_timer = V[x]; break;              // SET delay_timer = Vx
+                    case 0x18: sound_timer = V[x]; break;              // SET sound_timer = Vx
+                    case 0x1E: I += V[x]; break;                       // ADD I += Vx
+                    case 0x29: I = 0x50 + (V[x] & 0xF) * 5; break;    // SET I = font address
+                    case 0x33: {                                       // BCD (Binary Coded Decimal)
+                        uint8_t val = V[x];
+                        memory[I] = val / 100;
+                        memory[I + 1] = (val / 10) % 10;
+                        memory[I + 2] = val % 10;
+                        break;
+                    }
+                    case 0x55: {                                       // STORE V0...Vx to memory at I
+                        for (uint8_t i = 0; i <= x; ++i)
+                            memory[I + i] = V[i];
+                        break;
+                    }
+                    case 0x65: {                                       // LOAD V0...Vx from memory at I
+                        for (uint8_t i = 0; i <= x; ++i)
+                            V[i] = memory[I + i];
+                        break;
+                    }
+                }
+                break;
+            }
         }
+    }
+
+    void updateTimers() {
+        if (delay_timer > 0) delay_timer--;
+        if (sound_timer > 0) sound_timer--;
     }
 };
 
@@ -170,28 +314,52 @@ int main(int argc, char** argv) {
     SDL_PauseAudioDevice(dev, 0);
 
     bool quit = false;
-    auto last = std::chrono::high_resolution_clock::now();
+    auto last_timer_update = std::chrono::high_resolution_clock::now();
+    const int CPU_FREQ = 500;  // CHIP-8 CPU runs at ~500 Hz
+    const int FRAME_RATE = 60;  // Render at 60 FPS
+    const int CYCLES_PER_FRAME = CPU_FREQ / FRAME_RATE;  // ~8 cycles per frame
 
     while (!quit) {
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
-            if (e.type == SDL_QUIT) quit = true;
+            if (e.type == SDL_QUIT) {
+                quit = true;
+            } else if (e.type == SDL_KEYDOWN) {
+                // Map CHIP-8 keypad (0-F) to keyboard
+                const uint8_t keymap[16] = {0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
+                                            0x38, 0x39, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66};
+                for (int i = 0; i < 16; i++) {
+                    if (e.key.keysym.sym == keymap[i]) chip8.keypad[i] = 1;
+                }
+            } else if (e.type == SDL_KEYUP) {
+                const uint8_t keymap[16] = {0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
+                                            0x38, 0x39, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66};
+                for (int i = 0; i < 16; i++) {
+                    if (e.key.keysym.sym == keymap[i]) chip8.keypad[i] = 0;
+                }
+            }
         }
 
-        chip8.emulateCycle();
+        // Run CPU cycles
+        for (int i = 0; i < CYCLES_PER_FRAME; i++) {
+            chip8.emulateCycle();
+        }
 
-        // draw
+        // Update timers at 60 Hz
+        chip8.updateTimers();
+
+        // Render
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
 
-        SDL_Rect pixel{0,0,SCALE,SCALE};
+        SDL_Rect pixel{0, 0, SCALE, SCALE};
 
         for (int y = 0; y < CHIP8_H; y++) {
             for (int x = 0; x < CHIP8_W; x++) {
                 if (chip8.display[y * CHIP8_W + x]) {
                     pixel.x = OFFSET_X + x * SCALE;
                     pixel.y = OFFSET_Y + y * SCALE;
-                    SDL_SetRenderDrawColor(renderer, 255,255,255,255);
+                    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
                     SDL_RenderFillRect(renderer, &pixel);
                 }
             }
@@ -201,7 +369,7 @@ int main(int argc, char** argv) {
 
         audio.playing = chip8.sound_timer > 0;
 
-        SDL_Delay(2);    
+        SDL_Delay(1000 / FRAME_RATE);  // 16ms per frame for 60 FPS
     }
 
     SDL_Quit();
