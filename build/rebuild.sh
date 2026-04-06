@@ -59,6 +59,8 @@ update_config_file "$PROJECT_DIR/config/boot/firmware/config.txt" "/boot/firmwar
 update_config_file "$PROJECT_DIR/config/boot/firmware/cmdline.txt" "/boot/firmware/cmdline.txt"
 update_config_file "$PROJECT_DIR/config/etc/udev/rules.d/99-waveshare-touch.rules" "/etc/udev/rules.d/99-waveshare-touch.rules"
 
+rm -rf /home/pi/retro-launcher/*
+
 # 4. Build the project
 cd "$PROJECT_DIR/src"
 echo "Working derectory: ${PWD}"
