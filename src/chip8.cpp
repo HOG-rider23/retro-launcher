@@ -219,7 +219,9 @@ public:
                     uint8_t sprite = memory[I + row];
                     for (int col = 0; col < 8; ++col) {
                         if (sprite & (0x80 >> col)) {
-                            int idx = (vy + row) * CHIP8_W + (vx + col);
+                            int px = (vx + col) % CHIP8_W;
+                            int py = (vy + row) % CHIP8_H;
+                            int idx = py * CHIP8_W + px;
                             if (display[idx]) V[0xF] = 1;
                             display[idx] ^= 1;
                         }
@@ -314,7 +316,6 @@ int main(int argc, char** argv) {
     SDL_PauseAudioDevice(dev, 0);
 
     bool quit = false;
-    auto last_timer_update = std::chrono::high_resolution_clock::now();
     const int CPU_FREQ = 500;  // CHIP-8 CPU runs at ~500 Hz
     const int FRAME_RATE = 60;  // Render at 60 FPS
     const int CYCLES_PER_FRAME = CPU_FREQ / FRAME_RATE;  // ~8 cycles per frame
