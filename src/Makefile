@@ -1,5 +1,5 @@
 OUT_DIR = output
-INSTALL_DIR = /home/jernej/retro-launcher/retro-launcher
+INSTALL_DIR = /home/jernej/retro-launcher
 
 all: clean $(OUT_DIR) launcher chip8 install
 
