@@ -20,7 +20,7 @@ std::ofstream logFile;
 inline void debug(const std::string& msg) {
     if (DEBUG_ENABLED) {
         if (!logFile.is_open()) {
-            logFile.open("/var/log/retro-launcher.log", std::ios::app);
+            logFile.open("/var/log/retro-launcher/retro-launcher.log", std::ios::app);
         }
         logFile << "[DEBUG] " << msg << std::endl;
         logFile.flush();
