@@ -74,11 +74,6 @@ else
     sudo systemctl enable retro-launcher.service
 fi
 
-# 5. Deploy the new binary
-echo "→ Installing new binary to $INSTALL_BINARY..."
-sudo cp -f "$BINARY_NAME" "$INSTALL_BINARY"
-sudo chmod +x "$INSTALL_BINARY"
-
 echo ""
 echo "✅ Update completed successfully!"
 echo "→ Rebooting system..."
