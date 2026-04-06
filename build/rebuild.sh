@@ -75,7 +75,7 @@ else
 fi
 
 echo ""
-echo "✅ Update completed successfully!"
+echo "✅ Build completed successfully!"
 echo "→ Rebooting system..."
 echo ""
 sudo reboot
