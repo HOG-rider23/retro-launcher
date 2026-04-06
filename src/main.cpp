@@ -198,26 +198,20 @@ void loadROMs(const fs::path& basePath) {
         return;
     }
 
-    for (const auto& systemFolder : fs::directory_iterator(basePath)) {
-        if (!systemFolder.is_directory()) continue;
-        std::string system = systemFolder.path().filename().string();
+    for (const auto& entry : fs::recursive_directory_iterator(basePath)) {
+        if (!entry.is_regular_file()) continue;
+        std::string ext = entry.path().extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
 
-        for (const auto& entry : fs::directory_iterator(systemFolder)) {
-            if (!entry.is_regular_file()) continue;
-            std::string ext = entry.path().extension().string();
-            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+        std::string system;
+        if      (ext == ".ch8") system = "chip8";
+        else if (ext == ".gb")  system = "gb";
+        else if (ext == ".gbc") system = "gbc";
+        else if (ext == ".gba") system = "gba";
+        else continue;
 
-            bool valid = false;
-            if (system == "chip8" && ext == ".ch8") valid = true;
-            if (system == "gb"    && ext == ".gb")  valid = true;
-            if (system == "gbc"   && ext == ".gbc") valid = true;
-            if (system == "gba"   && ext == ".gba") valid = true;
-
-            if (valid) {
-                std::string name = entry.path().filename().string();
-                romList.push_back({ entry.path().string(), system, "[" + system + "] " + name });
-            }
-        }
+        std::string name = entry.path().filename().string();
+        romList.push_back({ entry.path().string(), system, "[" + system + "] " + name });
     }
 
     std::sort(romList.begin(), romList.end(), [](const RomEntry& a, const RomEntry& b) {
