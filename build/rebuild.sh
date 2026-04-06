@@ -3,7 +3,6 @@
 # update.sh - Retro Launcher Deploy Script for Pi Zero 2 W
 # Run this after you push changes from your Ubuntu desktop.
 # ==============================================================
-
 set -e  # Stop on any error
 
 # ================== CONFIGURATION (edit these) =================
@@ -46,6 +45,7 @@ echo ""
 
 # 1. Go to project folder
 cd "$PROJECT_DIR"
+echo "Working derectory: ${PWD}"
 
 # 2. Make sure we are on the correct branch and up-to-date
 echo "→ Switching to branch $BRANCH and pulling latest changes..."
@@ -61,9 +61,11 @@ update_config_file "$PROJECT_DIR/config/etc/udev/rules.d/99-waveshare-touch.rule
 
 # 4. Build the project
 cd "$PROJECT_DIR/src"
-echo "→ Building with make ($BUILD_JOBS jobs)..."
+echo "Working derectory: ${PWD}"
 make clean || true          # safe if no clean target
+echo "→ Building with make ($BUILD_JOBS jobs)..."
 make -j"$BUILD_JOBS" all
+make install
 
 
 sudo systemctl daemon-reload
