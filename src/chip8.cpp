@@ -352,7 +352,7 @@ int main(int argc, char** argv) {
         // Update timers at 60 Hz
         chip8.updateTimers();
 
-        // Render
+        // Render with 180-degree rotation for Waveshare display
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
 
@@ -361,8 +361,11 @@ int main(int argc, char** argv) {
         for (int y = 0; y < CHIP8_H; y++) {
             for (int x = 0; x < CHIP8_W; x++) {
                 if (chip8.display[y * CHIP8_W + x]) {
-                    pixel.x = OFFSET_X + x * SCALE;
-                    pixel.y = OFFSET_Y + y * SCALE;
+                    // 180-degree rotation: flip both X and Y coordinates
+                    int rotated_x = CHIP8_W - 1 - x;
+                    int rotated_y = CHIP8_H - 1 - y;
+                    pixel.x = OFFSET_X + rotated_x * SCALE;
+                    pixel.y = OFFSET_Y + rotated_y * SCALE;
                     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
                     SDL_RenderFillRect(renderer, &pixel);
                 }
