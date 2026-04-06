@@ -63,7 +63,7 @@ update_config_file "$PROJECT_DIR/config/etc/udev/rules.d/99-waveshare-touch.rule
 cd "$PROJECT_DIR/src"
 echo "→ Building with make ($BUILD_JOBS jobs)..."
 make clean || true          # safe if no clean target
-make -j"$BUILD_JOBS"
+make -j"$BUILD_JOBS" all
 
 
 sudo systemctl daemon-reload
