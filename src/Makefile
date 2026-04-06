@@ -7,10 +7,10 @@ $(OUT_DIR):
 	mkdir -p $(OUT_DIR)
 
 launcher: main.cpp
-	g++ -std=c++17 main.cpp -o $(OUT_DIR)/launcher -lSDL2 -lSDL2_ttf
+	g++ main.cpp -o retro-launcher `pkg-config --cflags --libs sdl2 sdl2_ttf` -lSDL2 -lSDL2_ttf
 
 chip8: chip8.cpp
-	g++ -std=c++17 chip8.cpp -o $(OUT_DIR)/chip8 -lSDL2 -lSDL2_ttf
+	g++ chip8.cpp -o chip8 `pkg-config --cflags --libs sdl2` -lSDL2
 
 install:
 	mkdir -p $(INSTALL_DIR)
