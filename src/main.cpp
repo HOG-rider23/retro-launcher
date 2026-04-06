@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <algorithm>
+#include <fstream>
 
 namespace fs = std::filesystem;
 
@@ -14,9 +15,15 @@ const int FRAME_DELAY = 1000 / 30;
 
 bool DEBUG_ENABLED = false;
 
+std::ofstream logFile;
+
 inline void debug(const std::string& msg) {
     if (DEBUG_ENABLED) {
-        std::cerr << "[DEBUG] " << msg << std::endl;
+        if (!logFile.is_open()) {
+            logFile.open("/var/logs/retro-launcher", std::ios::app);
+        }
+        logFile << "[DEBUG] " << msg << std::endl;
+        logFile.flush();
     }
 }
 
