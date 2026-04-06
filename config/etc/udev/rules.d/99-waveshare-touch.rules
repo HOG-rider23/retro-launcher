@@ -1,2 +1,2 @@
-# 180° rotation for Waveshare 3.5inch DPI LCD
-ENV{ID_INPUT_TOUCHSCREEN}=="1", ENV{LIBINPUT_CALIBRATION_MATRIX}="-1 0 1 0 -1 1"
+# 0° (normal) rotation for Waveshare 3.5inch DPI LCD
+ENV{ID_INPUT_TOUCHSCREEN}=="1", ENV{LIBINPUT_CALIBRATION_MATRIX}="1 0 0 0 1 0"
