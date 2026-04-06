@@ -12,6 +12,14 @@ namespace fs = std::filesystem;
 
 const int FRAME_DELAY = 1000 / 30;
 
+bool DEBUG_ENABLED = false;
+
+inline void debug(const std::string& msg) {
+    if (DEBUG_ENABLED) {
+        std::cerr << "[DEBUG] " << msg << std::endl;
+    }
+}
+
 int SCREEN_WIDTH  = 320;
 int SCREEN_HEIGHT = 240;
 int FONT_SIZE     = 16;
@@ -104,6 +112,7 @@ void freeAllTextures() {
 }
 
 bool initSDL() {
+    debug("Initializing SDL...");
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         std::cerr << "SDL_Init failed: " << SDL_GetError() << std::endl;
         return false;
@@ -112,6 +121,7 @@ bool initSDL() {
         std::cerr << "TTF_Init failed: " << TTF_GetError() << std::endl;
         return false;
     }
+    debug("SDL and TTF initialized");
 
     window = SDL_CreateWindow("Retro Launcher",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -123,6 +133,7 @@ bool initSDL() {
     }
 
     SDL_GetWindowSize(window, &SCREEN_WIDTH, &SCREEN_HEIGHT);
+    debug("Window size: " + std::to_string(SCREEN_WIDTH) + "x" + std::to_string(SCREEN_HEIGHT));
 
     // Scale font and layout based on actual screen size
     // Base reference is 320x240 — scale proportionally
@@ -149,7 +160,10 @@ bool initSDL() {
     };
     for (int i = 0; fontPaths[i]; ++i) {
         font = TTF_OpenFont(fontPaths[i], FONT_SIZE);
-        if (font) break;
+        if (font) {
+            debug("Font loaded: " + std::string(fontPaths[i]));
+            break;
+        }
     }
     if (!font) {
         std::cerr << "Font failed: " << TTF_GetError() << std::endl;
@@ -169,9 +183,13 @@ void shutdownSDL() {
 }
 
 void loadROMs(const std::string& basePath) {
+    debug("Loading ROMs from: " + basePath);
     freeTextures();
     romList.clear();
-    if (!fs::exists(basePath)) return;
+    if (!fs::exists(basePath)) {
+        debug("ROM path does not exist");
+        return;
+    }
 
     for (const auto& systemFolder : fs::directory_iterator(basePath)) {
         if (!systemFolder.is_directory()) continue;
@@ -198,9 +216,11 @@ void loadROMs(const std::string& basePath) {
     std::sort(romList.begin(), romList.end(), [](const RomEntry& a, const RomEntry& b) {
         return a.displayName < b.displayName;
     });
+    debug("Loaded " + std::to_string(romList.size()) + " ROMs");
 }
 
 void launchROM(const RomEntry& entry) {
+    debug("Launching ROM: " + entry.displayName);
     std::string emulator;
     if (entry.system == "chip8") {
         emulator = "./emulators/chip8/chip8";
@@ -210,8 +230,9 @@ void launchROM(const RomEntry& entry) {
         std::cerr << "No emulator for: " << entry.system << std::endl;
         return;
     }
-
+    debug("Using emulator: " + emulator);
     std::string romPath = fs::absolute(entry.path).string();
+    debug("ROM path: " + romPath);
 
     // Shut down SDL cleanly before forking
     shutdownSDL();
@@ -309,13 +330,25 @@ bool handleKey(SDL_Keycode key, int& scrollOffset, int maxVisible) {
     return false;
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+    // Parse command-line arguments for debug mode
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "-d" || arg == "--debug") {
+            DEBUG_ENABLED = true;
+            break;
+        }
+    }
+
+    debug("=== Retro Launcher Starting ===");
     if (!initSDL()) return 1;
 
+    debug("Caching static textures...");
     loadROMs("roms");
     cacheStaticTextures();
     updateCountTexture();
     cacheTextures();
+    debug("Initialization complete, entering main loop");
 
     int  scrollOffset = 0;
     int  maxVisible   = (SCREEN_HEIGHT - LIST_TOP_PAD - ITEM_HEIGHT - 4) / ITEM_HEIGHT;
@@ -390,5 +423,6 @@ int main() {
     }
 
     shutdownSDL();
+    debug("=== Retro Launcher Shutting Down ===");
     return 0;
 }

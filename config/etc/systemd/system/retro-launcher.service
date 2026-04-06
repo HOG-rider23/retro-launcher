@@ -4,10 +4,10 @@ After=multi-user.target
 
 [Service]
 Type=simple
-User=pi
+User=jernej
 WorkingDirectory=/home/jernej/retro-launcher
 Environment=SDL_VIDEODRIVER=kmsdrm
-ExecStart=/home/jernej/retro-launcher/retro-launcher
+ExecStart=/home/jernej/retro-launcher/retro-launcher --debug
 Restart=on-failure
 RestartSec=5
 
