@@ -7,13 +7,14 @@ set -e  # Stop on any error
 
 # ================== CONFIGURATION (edit these) =================
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
-PROJECT_DIR="$(dirname "$SCRIPT_DIR")"  # Parent directory of build/
-BINARY_NAME="retro-launcher"           # ← Name of your final executable
-BRANCH="main"                          # ← Usually main or master
-BUILD_JOBS=2                           # ← Safe for Pi Zero 2 W (use 4 if you want faster)
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"              # Parent directory of build/
+BINARY_NAME="retro-launcher"                        # ← Name of your final executable
+BRANCH="main"                                       # ← Usually main or master
+BUILD_JOBS=2                                        # ← Safe for Pi Zero 2 W (use 4 if you want faster)
+INSTALL_DIRECTORY="/home/jernej/retro-launcher"     # ← Where to install the binary and config files
 
 # Optional: path to your binary after build
-INSTALL_BINARY="/home/pi/retro-launcher/$BINARY_NAME"
+INSTALL_BINARY="$INSTALL_DIRECTORY/$BINARY_NAME"
 # ==============================================================
 
 # Function to update config files from example templates
@@ -59,7 +60,7 @@ update_config_file "$PROJECT_DIR/config/boot/firmware/config.txt" "/boot/firmwar
 update_config_file "$PROJECT_DIR/config/boot/firmware/cmdline.txt" "/boot/firmware/cmdline.txt"
 update_config_file "$PROJECT_DIR/config/etc/udev/rules.d/99-waveshare-touch.rules" "/etc/udev/rules.d/99-waveshare-touch.rules"
 
-rm -rf /home/pi/retro-launcher/*
+rm -rf $INSTALL_DIRECTORY/*
 
 # 4. Build the project
 cd "$PROJECT_DIR/src"
