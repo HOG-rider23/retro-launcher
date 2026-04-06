@@ -48,9 +48,18 @@ struct RomEntry {
 std::vector<RomEntry> romList;
 size_t selectedIndex = 0;
 
+// Returns the directory containing the launcher executable
+fs::path getBaseDir() {
+    char buf[4096];
+    ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+    if (len == -1) return fs::current_path();
+    buf[len] = '\0';
+    return fs::path(buf).parent_path();
+}
+
 bool initSDL();
 void shutdownSDL();
-void loadROMs(const std::string& basePath);
+void loadROMs(const fs::path& basePath);
 void cacheTextures();
 void cacheStaticTextures();
 void updateCountTexture();
@@ -135,13 +144,11 @@ bool initSDL() {
     SDL_GetWindowSize(window, &SCREEN_WIDTH, &SCREEN_HEIGHT);
     debug("Window size: " + std::to_string(SCREEN_WIDTH) + "x" + std::to_string(SCREEN_HEIGHT));
 
-    // Scale font and layout based on actual screen size
-    // Base reference is 320x240 — scale proportionally
-    float scale = (float)SCREEN_HEIGHT / 240.0f;
-    FONT_SIZE    = (int)(14 * scale);
-    ITEM_HEIGHT  = (int)(22 * scale);
-    LIST_TOP_PAD = (int)(32 * scale);
-    LIST_LEFT_PAD = (int)(8 * scale);
+    float scale   = (float)SCREEN_HEIGHT / 240.0f;
+    FONT_SIZE     = (int)(14 * scale);
+    ITEM_HEIGHT   = (int)(22 * scale);
+    LIST_TOP_PAD  = (int)(32 * scale);
+    LIST_LEFT_PAD = (int)(8  * scale);
 
     renderer = SDL_CreateRenderer(window, -1,
         SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
@@ -175,19 +182,19 @@ bool initSDL() {
 
 void shutdownSDL() {
     freeAllTextures();
-    if (font)     { TTF_CloseFont(font);          font     = nullptr; }
+    if (font)     { TTF_CloseFont(font);           font     = nullptr; }
     if (renderer) { SDL_DestroyRenderer(renderer); renderer = nullptr; }
     if (window)   { SDL_DestroyWindow(window);     window   = nullptr; }
     TTF_Quit();
     SDL_Quit();
 }
 
-void loadROMs(const std::string& basePath) {
-    debug("Loading ROMs from: " + basePath);
+void loadROMs(const fs::path& basePath) {
+    debug("Loading ROMs from: " + basePath.string());
     freeTextures();
     romList.clear();
     if (!fs::exists(basePath)) {
-        debug("ROM path does not exist");
+        debug("ROM path does not exist: " + basePath.string());
         return;
     }
 
@@ -221,50 +228,43 @@ void loadROMs(const std::string& basePath) {
 
 void launchROM(const RomEntry& entry) {
     debug("Launching ROM: " + entry.displayName);
+
+    fs::path baseDir = getBaseDir();
     std::string emulator;
+
     if (entry.system == "chip8") {
-        emulator = "./emulators/chip8/chip8";
+        emulator = (baseDir / "emulators" / "chip8").string();
     } else if (entry.system == "gb" || entry.system == "gbc" || entry.system == "gba") {
-        emulator = "./emulators/mgba/build/sdl/mgba";
+        emulator = (baseDir / "emulators" / "mgba" / "build" / "sdl" / "mgba").string();
     } else {
         std::cerr << "No emulator for: " << entry.system << std::endl;
         return;
     }
+
     debug("Using emulator: " + emulator);
     std::string romPath = fs::absolute(entry.path).string();
     debug("ROM path: " + romPath);
 
-    // Shut down SDL cleanly before forking
     shutdownSDL();
-
-    // Give the display driver board time to release and re-initialize
-    // before the child process tries to grab it
-    usleep(800000); // 800ms
+    usleep(800000);
 
     pid_t pid = fork();
     if (pid == 0) {
-        // Child process — become session leader so it owns the display
         setsid();
-
-        // Small extra delay in child to ensure parent has fully exited SDL
-        usleep(200000); // 200ms
-
+        usleep(200000);
         const char* args[] = { emulator.c_str(), romPath.c_str(), nullptr };
         execvp(emulator.c_str(), const_cast<char* const*>(args));
         std::cerr << "Failed to launch: " << emulator << std::endl;
         _exit(1);
     } else if (pid > 0) {
-        // Parent waits for emulator to finish
         int status;
         waitpid(pid, &status, 0);
     } else {
         std::cerr << "fork() failed" << std::endl;
     }
 
-    // Give display time to recover after emulator exits
-    usleep(800000); // 800ms
+    usleep(800000);
 
-    // Reinitialize launcher
     if (!initSDL()) { std::cerr << "Failed to reinit SDL" << std::endl; exit(1); }
     cacheStaticTextures();
     updateCountTexture();
@@ -331,10 +331,8 @@ bool handleKey(SDL_Keycode key, int& scrollOffset, int maxVisible) {
 }
 
 int main(int argc, char* argv[]) {
-    // Parse command-line arguments for debug mode
     for (int i = 1; i < argc; ++i) {
-        std::string arg = argv[i];
-        if (arg == "-d" || arg == "--debug") {
+        if (std::string(argv[i]) == "-d" || std::string(argv[i]) == "--debug") {
             DEBUG_ENABLED = true;
             break;
         }
@@ -343,8 +341,10 @@ int main(int argc, char* argv[]) {
     debug("=== Retro Launcher Starting ===");
     if (!initSDL()) return 1;
 
-    debug("Caching static textures...");
-    loadROMs("roms");
+    fs::path baseDir = getBaseDir();
+    debug("Base dir: " + baseDir.string());
+
+    loadROMs(baseDir / "roms");
     cacheStaticTextures();
     updateCountTexture();
     cacheTextures();
