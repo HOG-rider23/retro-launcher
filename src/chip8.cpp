@@ -66,6 +66,19 @@ void audioCallback(void* userdata, Uint8* stream, int len) {
 // MCP23017
 int mcp_fd = -1;
 
+bool DEBUG_ENABLED = false;
+std::ofstream logFile;
+
+inline void debug(const std::string& msg) {
+    if (DEBUG_ENABLED) {
+        if (!logFile.is_open()) {
+            logFile.open("/var/log/retro-launcher/chip8.log", std::ios::app);
+        }
+        logFile << "[DEBUG] " << msg << std::endl;
+        logFile.flush();
+    }
+}
+
 bool initMCP() {
     char path[32];
     snprintf(path, sizeof(path), "/dev/i2c-%d", I2C_BUS);
@@ -320,23 +333,45 @@ public:
 };
 
 int main(int argc, char** argv) {
-    if (argc < 2) {
-        std::cout << "Usage: " << argv[0] << " rom.ch8\n";
+    // Parse command-line arguments for debug flag
+    for (int i = 1; i < argc; ++i) {
+        if (std::string(argv[i]) == "-d" || std::string(argv[i]) == "--debug") {
+            DEBUG_ENABLED = true;
+            debug("=== CHIP-8 Emulator Starting (DEBUG MODE) ===");
+            break;
+        }
+    }
+
+    if (argc < 3) {
+        std::cout << "Usage: " << argv[0] << " rom.ch8 [-d|--debug]\n";
         return 1;
     }
+
+    debug("Loading ROM: " + std::string(argv[1]));
 
     Chip8 chip8;
     if (!chip8.loadROM(argv[1])) {
         std::cout << "Failed to load ROM\n";
+        debug("Failed to load ROM: " + std::string(argv[1]));
         return 1;
     }
+    debug("ROM loaded successfully");
 
+    debug("Initializing SDL...");
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
     SDL_Window* window = SDL_CreateWindow("CHIP-8", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_W, SCREEN_H, SDL_WINDOW_SHOWN);
     SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
+    debug("SDL initialized");
 
     // === MCP & AUDIO INIT ===
-    initMCP();
+    debug("Initializing MCP23017...");
+    if (initMCP()) {
+        debug("MCP23017 initialized successfully");
+    } else {
+        debug("Warning: MCP23017 initialization failed");
+    }
+    
+    debug("Initializing audio...");
     AudioState audio;
     SDL_AudioSpec want{};
     want.freq = SAMPLE_RATE;
@@ -352,6 +387,9 @@ int main(int argc, char** argv) {
     const int CPU_FREQ = 2000;
     const int FRAME_RATE = 60;
     const int CYCLES_PER_FRAME = CPU_FREQ / FRAME_RATE;
+    
+    debug("Entering main emulation loop. CPU freq: " + std::to_string(CPU_FREQ) + 
+          " Hz, Frame rate: " + std::to_string(FRAME_RATE) + " FPS");
 
     while (!quit) {
         SDL_Event e;
@@ -361,6 +399,7 @@ int main(int argc, char** argv) {
 
         // === READ MCP BUTTONS ===
         uint16_t pressed = readMCPButtons();
+        debug("MCP Buttons state: " + std::to_string(pressed));
         chip8.keypad[0x5] = (pressed & (1 << UP_A_PIN)) != 0;      // UP
         chip8.keypad[0x8] = (pressed & (1 << DOWN_A_PIN)) != 0;    // DOWN
         chip8.keypad[0x4] = (pressed & (1 << LEFT_A_PIN)) != 0;    // LEFT
@@ -393,6 +432,7 @@ int main(int argc, char** argv) {
         SDL_Delay(1000 / FRAME_RATE);
     }
 
+    debug("=== CHIP-8 Emulator Shutting Down ===");
     SDL_Quit();
     if (mcp_fd >= 0) close(mcp_fd);
     return 0;

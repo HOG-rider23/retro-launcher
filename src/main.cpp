@@ -285,15 +285,26 @@ void launchROM(const RomEntry& entry) {
     std::string emulator;
 
     if (entry.system == "chip8") {
+        // CHIP-8 emulator is in the emulators/ subfolder
         emulator = (baseDir / "emulators" / "chip8").string();
     } else if (entry.system == "gb" || entry.system == "gbc" || entry.system == "gba") {
-        emulator = (baseDir / "emulators" / "mgba" / "build" / "sdl" / "mgba").string();
+        // Third-party emulator (mgba) is in the roms/ subfolder
+        emulator = (baseDir / "roms" / "mgba" / "build" / "sdl" / "mgba").string();
     } else {
         std::cerr << "No emulator for: " << entry.system << std::endl;
+        debug("ERROR: No emulator defined for system " + entry.system);
         return;
     }
 
     debug("Using emulator: " + emulator);
+
+    // Safety check
+    if (!fs::exists(emulator)) {
+        std::cerr << "ERROR: Emulator not found at " << emulator << std::endl;
+        debug("ERROR: Emulator not found at " + emulator);
+        return;
+    }
+
     std::string romPath = fs::absolute(entry.path).string();
     debug("ROM path: " + romPath);
 
@@ -317,7 +328,10 @@ void launchROM(const RomEntry& entry) {
 
     usleep(800000);
 
-    if (!initSDL()) { std::cerr << "Failed to reinit SDL" << std::endl; exit(1); }
+    if (!initSDL()) { 
+        std::cerr << "Failed to reinit SDL" << std::endl; 
+        exit(1); 
+    }
     cacheStaticTextures();
     updateCountTexture();
     cacheTextures();
@@ -357,24 +371,31 @@ void drawHighlight(int y) {
 
 bool handleKey(SDL_Keycode key, int& scrollOffset, int maxVisible) {
     switch (key) {
-        case SDLK_ESCAPE: return true;
+        case SDLK_ESCAPE:
+            debug("Exiting launcher"); 
+            return true;
         case SDLK_UP:
+            debug("Key UP"); 
             if (!romList.empty())
                 selectedIndex = (selectedIndex == 0) ? romList.size() - 1 : selectedIndex - 1;
             break;
         case SDLK_DOWN:
+            debug("Key DOWN");
             if (!romList.empty())
                 selectedIndex = (selectedIndex + 1) % romList.size();
             break;
         case SDLK_RETURN:
         case SDLK_KP_ENTER:
+            debug("Key RETURN");
             if (!romList.empty()) launchROM(romList[selectedIndex]);
             break;
         case SDLK_BACKSPACE:
+            debug("Key BACKSPACE");
             selectedIndex = 0;
             scrollOffset  = 0;
             break;
         case SDLK_TAB:
+            debug("Key TAB");
             if (!romList.empty()) selectedIndex = romList.size() - 1;
             break;
         default: break;
