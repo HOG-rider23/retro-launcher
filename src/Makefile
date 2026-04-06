@@ -18,7 +18,7 @@ install:
 	mkdir -p $(INSTALL_DIR)/roms
 	cp $(OUT_DIR)/launcher $(INSTALL_DIR)/retro-launcher
 	cp $(OUT_DIR)/chip8 $(INSTALL_DIR)/emulators/
-	cp -r ../third-party/. $(INSTALL_DIR)/roms/
+	cp ../third-party/* $(INSTALL_DIR)/roms/
 
 clean:
 	rm -rf $(OUT_DIR)
