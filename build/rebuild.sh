@@ -22,18 +22,16 @@ update_config_file() {
     local source_file="$1"
     local target_file="$2"
     if [ -f "$source_file" ]; then
-        if [ -f "$target_file" ]; then
-            if diff -q "$target_file" "$source_file" >/dev/null; then
-                echo "   No changes needed for $target_file"
-                return
+        if diff -q "$target_file" "$source_file" >/dev/null; then
+            echo "   No changes needed for $target_file"
+            return
+        else
+            echo "→ Updating $target_file file..."
+            sudo cp "$source_file" "$target_file"
+            if [ -f "$target_file" ]; then
+                echo "   Updated $target_file from template"
             else
-                echo "→ Updating $target_file file..."
-                sudo cp "$source_file" "$target_file"
-                if [ -f "$target_file" ]; then
-                    echo "   Updated $target_file from template"
-                else
-                    echo "   Created new $target_file from template"
-                fi
+                echo "   Created new $target_file from template"
             fi
         fi
     fi
