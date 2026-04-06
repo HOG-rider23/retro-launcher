@@ -77,6 +77,11 @@ else
     sudo systemctl enable retro-launcher.service
 fi
 
+sudo mkdir -p "/var/log/retro-launcher"
+sudo chmod 777 "/var/log/retro-launcher"
+sudo touch "/var/log/retro-launcher/retro-launcher.log"
+sudo chmod 777 "/var/log/retro-launcher/retro-launcher.log"
+
 echo ""
 echo "✅ Build completed successfully!"
 echo "→ Rebooting system..."
