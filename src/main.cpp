@@ -31,22 +31,23 @@ inline void debug(const std::string& msg) {
 // === MCP23017 CONFIGURATION (your pins) ===
 const int I2C_BUS = 11;
 const uint8_t MCP_ADDR = 0x27;
-const uint8_t UP_A_PIN = 1;
-const uint8_t DOWN_A_PIN = 2;
-const uint8_t LEFT_A_PIN = 3;
+const uint8_t UP_A_PIN    = 1;
+const uint8_t DOWN_A_PIN  = 2;
+const uint8_t LEFT_A_PIN  = 3;
 const uint8_t RIGHT_A_PIN = 4;
 const uint8_t START_A_PIN = 5;
 const uint8_t SELECT_A_PIN = 6;
-const uint8_t A_A_PIN = 7;
+const uint8_t A_A_PIN     = 7;
+const uint8_t B_B_PIN     = 0;
+const uint8_t X_B_PIN     = 1;
+const uint8_t Y_B_PIN     = 2;
 
-const uint8_t B_B_PIN = 0;
-const uint8_t X_B_PIN = 1;
-const uint8_t Y_B_PIN = 2;
-
-const uint8_t IODIRB = 0x01;
-const uint8_t GPIOB = 0x15;
 const uint8_t IODIRA = 0x00;
-const uint8_t GPIOA = 0x14;
+const uint8_t IODIRB = 0x01;
+const uint8_t GPIOA  = 0x12;
+const uint8_t GPIOB  = 0x13;
+const uint8_t GPPUA  = 0x0C;
+const uint8_t GPPUB  = 0x0D;
 
 // MCP helper (same as in chip8.cpp)
 int mcp_fd = -1;
@@ -60,23 +61,22 @@ bool initMCP() {
         return false;
     }
     if (ioctl(mcp_fd, I2C_SLAVE, MCP_ADDR) < 0) {
-        close(mcp_fd);
-        mcp_fd = -1;
+        close(mcp_fd); mcp_fd = -1;
         debug("Failed to set I2C address");
         return false;
     }
 
     uint8_t cfg[2];
 
-    // Port A and B = inputs
+    // Set both ports as inputs
     cfg[0] = IODIRA; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
     cfg[0] = IODIRB; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
 
     // Enable internal pull-ups on ALL pins
-    cfg[0] = 0x0C; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);  // GPPUA
-    cfg[0] = 0x0D; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);  // GPPUB
+    cfg[0] = GPPUA; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
+    cfg[0] = GPPUB; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
 
-    debug("MCP23017 initialized with internal pull-ups");
+    debug("MCP23017 initialized with correct registers + pull-ups");
     return true;
 }
 
@@ -85,7 +85,7 @@ uint16_t readMCPButtons() {
 
     uint8_t reg = GPIOA;
     if (write(mcp_fd, &reg, 1) != 1) {
-        debug("Failed to set GPIOA pointer");
+        debug("Failed to set register pointer");
         return 0xFFFF;
     }
 
@@ -95,14 +95,10 @@ uint16_t readMCPButtons() {
         return 0xFFFF;
     }
 
-    // Debug raw values (this will show us what the MCP really sees)
     debug("Raw GPIOA=0x" + std::to_string(data[0]) + "  GPIOB=0x" + std::to_string(data[1]));
 
-    // active-low with pull-ups: bit = 0 → pressed
     uint16_t raw = (static_cast<uint16_t>(data[1]) << 8) | data[0];
-    uint16_t pressed = (~raw) & 0xFFFF;
-
-    return pressed;
+    return (~raw) & 0xFFFF;   // active-low with pull-ups
 }
 
 const int FRAME_DELAY = 1000 / 30;
