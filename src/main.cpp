@@ -398,10 +398,28 @@ void drawHighlight(int y) {
     SDL_RenderFillRect(renderer, &bar);
 }
 
+void gracefulShutdown()
+{
+    debug("=== Graceful Shutdown Requested (START / ESCAPE pressed) ===");
+
+    // Clean up all SDL resources
+    shutdownSDL();
+
+    debug("SDL resources cleaned up. Initiating system shutdown...");
+
+    // Graceful system shutdown (works with the current service user)
+    //system("sudo shutdown -h now");
+
+    // Fallback in case sudo fails (rare)
+    debug("Shutdown command issued. Exiting now.");
+    exit(0);
+}
+
 bool handleKey(SDL_Keycode key, int& scrollOffset, int maxVisible) {
     switch (key) {
         case SDLK_ESCAPE:
-            debug("Exiting launcher"); 
+            debug("Exiting launcher");
+            gracefulShutdown();
             return true;
         case SDLK_UP:
             debug("Key UP"); 
@@ -473,7 +491,7 @@ int main(int argc, char* argv[]) {
             if (pressed & (1 << LEFT_A_PIN))   if (!(last_pressed & (1 << LEFT_A_PIN)))   handleKey(SDLK_LEFT, scrollOffset, maxVisible);
             if (pressed & (1 << RIGHT_A_PIN))  if (!(last_pressed & (1 << RIGHT_A_PIN)))  handleKey(SDLK_RIGHT, scrollOffset, maxVisible);
             if (pressed & (1 << A_A_PIN))      if (!(last_pressed & (1 << A_A_PIN)))      handleKey(SDLK_RETURN, scrollOffset, maxVisible);
-            if (pressed & (1 << B_B_PIN))      if (!(last_pressed & (1 << B_B_PIN)))      handleKey(SDLK_BACKSPACE, scrollOffset, maxVisible);  // B on B3
+            if (pressed & (1 << B_B_PIN))      if (!(last_pressed & (1 << B_B_PIN)))      handleKey(SDLK_BACKSPACE, scrollOffset, maxVisible);
             if (pressed & (1 << START_A_PIN))  if (!(last_pressed & (1 << START_A_PIN)))  handleKey(SDLK_ESCAPE, scrollOffset, maxVisible);
             if (pressed & (1 << SELECT_A_PIN)) if (!(last_pressed & (1 << SELECT_A_PIN))) handleKey(SDLK_TAB, scrollOffset, maxVisible);
 
