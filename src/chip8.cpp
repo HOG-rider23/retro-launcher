@@ -353,7 +353,7 @@ public:
         if (sound_timer > 0) sound_timer--;
     }
 
-    void Chip8::handleKey(uint8_t key, bool pressed)
+    void handleKey(uint8_t key, bool pressed)
     {
         keypad[0x5] = false;  // UP
         keypad[0x8] = false;  // DOWN
