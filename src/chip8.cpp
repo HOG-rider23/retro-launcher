@@ -94,17 +94,15 @@ bool initMCP() {
         return false;
     }
 
-    // === CONFIGURE MCP23017 ===
     uint8_t cfg[2];
 
-    // Port A = all inputs
+    // Port A and B = inputs
     cfg[0] = IODIRA; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
-    // Port B = all inputs
     cfg[0] = IODIRB; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
 
-    // === ENABLE INTERNAL PULL-UPS (this fixes the constant-pressed issue) ===
-    cfg[0] = 0x0C; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);  // GPPUA  = pull-ups on Port A
-    cfg[0] = 0x0D; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);  // GPPUB  = pull-ups on Port B
+    // Enable internal pull-ups on ALL pins
+    cfg[0] = 0x0C; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);  // GPPUA
+    cfg[0] = 0x0D; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);  // GPPUB
 
     debug("MCP23017 initialized with internal pull-ups");
     return true;
@@ -112,12 +110,27 @@ bool initMCP() {
 
 uint16_t readMCPButtons() {
     if (mcp_fd < 0) return 0xFFFF;
+
     uint8_t reg = GPIOA;
-    write(mcp_fd, &reg, 1);
-    uint8_t data[2];
-    if (read(mcp_fd, data, 2) != 2) return 0xFFFF;
-    // active-low → pressed when bit == 0
-    return (~(data[0] | (data[1] << 8))) & 0xFFFF;
+    if (write(mcp_fd, &reg, 1) != 1) {
+        debug("Failed to set GPIOA pointer");
+        return 0xFFFF;
+    }
+
+    uint8_t data[2] = {0};
+    if (read(mcp_fd, data, 2) != 2) {
+        debug("Failed to read GPIO registers");
+        return 0xFFFF;
+    }
+
+    // Debug raw values (this will show us what the MCP really sees)
+    debug("Raw GPIOA=0x" + std::to_string(data[0]) + "  GPIOB=0x" + std::to_string(data[1]));
+
+    // active-low with pull-ups: bit = 0 → pressed
+    uint16_t raw = (static_cast<uint16_t>(data[1]) << 8) | data[0];
+    uint16_t pressed = (~raw) & 0xFFFF;
+
+    return pressed;
 }
 
 class Chip8 {
