@@ -12,16 +12,18 @@
 // === MCP23017 CONFIGURATION ===
 const int I2C_BUS = 11;
 const uint8_t MCP_ADDR = 0x27;
-const uint8_t UP_A_PIN    = 1;
-const uint8_t DOWN_A_PIN  = 2;
-const uint8_t LEFT_A_PIN  = 3;
-const uint8_t RIGHT_A_PIN = 4;
-const uint8_t START_A_PIN = 5;
+
+const uint8_t UP_A_PIN     = 1;
+const uint8_t DOWN_A_PIN   = 2;
+const uint8_t LEFT_A_PIN   = 3;
+const uint8_t RIGHT_A_PIN  = 4;
+const uint8_t START_A_PIN  = 5;
 const uint8_t SELECT_A_PIN = 6;
-const uint8_t A_A_PIN     = 7;
-const uint8_t B_B_PIN     = 0;
+const uint8_t A_A_PIN      = 7;
+
 const uint8_t X_B_PIN     = 1;
 const uint8_t Y_B_PIN     = 2;
+const uint8_t B_B_PIN     = 3;
 
 const uint8_t IODIRA = 0x00;
 const uint8_t IODIRB = 0x01;
@@ -96,33 +98,27 @@ bool initMCP() {
     }
 
     uint8_t cfg[2];
-    cfg[0] = IODIRA; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);  // Port A = inputs
-    cfg[0] = IODIRB; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);  // Port B = inputs
-    cfg[0] = GPPUA;  cfg[1] = 0xFF; write(mcp_fd, cfg, 2);  // Pull-ups A
-    cfg[0] = GPPUB;  cfg[1] = 0xFF; write(mcp_fd, cfg, 2);  // Pull-ups B
+    cfg[0] = IODIRA; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
+    cfg[0] = IODIRB; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
+    cfg[0] = GPPUA;  cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
+    cfg[0] = GPPUB;  cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
 
-    debug("MCP23017 initialized (separate reads + pull-ups)");
+    debug("MCP23017 initialized (B button on B3)");
     return true;
 }
 
 uint16_t readMCPButtons() {
     if (mcp_fd < 0) return 0xFFFF;
 
-    uint8_t dataA = 0xFF, dataB = 0xFF;
-
-    // Read Port A
     uint8_t reg = GPIOA;
-    write(mcp_fd, &reg, 1);
-    read(mcp_fd, &dataA, 1);
+    if (write(mcp_fd, &reg, 1) != 1) return 0xFFFF;
 
-    // Read Port B (separate transaction - much more reliable)
-    reg = GPIOB;
-    write(mcp_fd, &reg, 1);
-    read(mcp_fd, &dataB, 1);
+    uint8_t data[2] = {0};
+    if (read(mcp_fd, data, 2) != 2) return 0xFFFF;
 
-    debug("Raw GPIOA=0x" + std::to_string(dataA) + "  GPIOB=0x" + std::to_string(dataB));
+    debug("Raw GPIOA=0x" + std::to_string(data[0]) + "  GPIOB=0x" + std::to_string(data[1]));
 
-    uint16_t raw = (static_cast<uint16_t>(dataB) << 8) | dataA;
+    uint16_t raw = (static_cast<uint16_t>(data[1]) << 8) | data[0];
     return (~raw) & 0xFFFF;   // active-low
 }
 

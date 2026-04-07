@@ -31,16 +31,18 @@ inline void debug(const std::string& msg) {
 // === MCP23017 CONFIGURATION (your pins) ===
 const int I2C_BUS = 11;
 const uint8_t MCP_ADDR = 0x27;
-const uint8_t UP_A_PIN    = 1;
-const uint8_t DOWN_A_PIN  = 2;
-const uint8_t LEFT_A_PIN  = 3;
-const uint8_t RIGHT_A_PIN = 4;
-const uint8_t START_A_PIN = 5;
+
+const uint8_t UP_A_PIN     = 1;
+const uint8_t DOWN_A_PIN   = 2;
+const uint8_t LEFT_A_PIN   = 3;
+const uint8_t RIGHT_A_PIN  = 4;
+const uint8_t START_A_PIN  = 5;
 const uint8_t SELECT_A_PIN = 6;
-const uint8_t A_A_PIN     = 7;
-const uint8_t B_B_PIN     = 0;
+const uint8_t A_A_PIN      = 7;
+
 const uint8_t X_B_PIN     = 1;
 const uint8_t Y_B_PIN     = 2;
+const uint8_t B_B_PIN     = 3;
 
 const uint8_t IODIRA = 0x00;
 const uint8_t IODIRB = 0x01;
@@ -67,33 +69,27 @@ bool initMCP() {
     }
 
     uint8_t cfg[2];
-    cfg[0] = IODIRA; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);  // Port A = inputs
-    cfg[0] = IODIRB; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);  // Port B = inputs
-    cfg[0] = GPPUA;  cfg[1] = 0xFF; write(mcp_fd, cfg, 2);  // Pull-ups A
-    cfg[0] = GPPUB;  cfg[1] = 0xFF; write(mcp_fd, cfg, 2);  // Pull-ups B
+    cfg[0] = IODIRA; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
+    cfg[0] = IODIRB; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
+    cfg[0] = GPPUA;  cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
+    cfg[0] = GPPUB;  cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
 
-    debug("MCP23017 initialized (separate reads + pull-ups)");
+    debug("MCP23017 initialized (B button on B3)");
     return true;
 }
 
 uint16_t readMCPButtons() {
     if (mcp_fd < 0) return 0xFFFF;
 
-    uint8_t dataA = 0xFF, dataB = 0xFF;
-
-    // Read Port A
     uint8_t reg = GPIOA;
-    write(mcp_fd, &reg, 1);
-    read(mcp_fd, &dataA, 1);
+    if (write(mcp_fd, &reg, 1) != 1) return 0xFFFF;
 
-    // Read Port B (separate transaction - much more reliable)
-    reg = GPIOB;
-    write(mcp_fd, &reg, 1);
-    read(mcp_fd, &dataB, 1);
+    uint8_t data[2] = {0};
+    if (read(mcp_fd, data, 2) != 2) return 0xFFFF;
 
-    debug("Raw GPIOA=0x" + std::to_string(dataA) + "  GPIOB=0x" + std::to_string(dataB));
+    debug("Raw GPIOA=0x" + std::to_string(data[0]) + "  GPIOB=0x" + std::to_string(data[1]));
 
-    uint16_t raw = (static_cast<uint16_t>(dataB) << 8) | dataA;
+    uint16_t raw = (static_cast<uint16_t>(data[1]) << 8) | data[0];
     return (~raw) & 0xFFFF;   // active-low
 }
 
@@ -464,18 +460,27 @@ int main(int argc, char* argv[]) {
     while (running) {
         Uint32 frameStart = SDL_GetTicks();
 
-        // === READ MCP BUTTONS EVERY FRAME ===
+        // === READ MCP BUTTONS WITH EDGE DETECTION ===
+        static uint16_t last_pressed = 0xFFFF;
+        static Uint32 last_press_time = 0;
+
         uint16_t pressed = readMCPButtons();
 
-        // Simulate keyboard events from MCP
-        if (pressed & (1 << UP_A_PIN))    handleKey(SDLK_UP, scrollOffset, maxVisible);
-        if (pressed & (1 << DOWN_A_PIN))  handleKey(SDLK_DOWN, scrollOffset, maxVisible);
-        if (pressed & (1 << LEFT_A_PIN))  handleKey(SDLK_LEFT, scrollOffset, maxVisible);
-        if (pressed & (1 << RIGHT_A_PIN)) handleKey(SDLK_RIGHT, scrollOffset, maxVisible);
-        if (pressed & (1 << A_A_PIN))     handleKey(SDLK_RETURN, scrollOffset, maxVisible);
-        if (pressed & (1 << B_B_PIN))     handleKey(SDLK_BACKSPACE, scrollOffset, maxVisible);
-        if (pressed & (1 << START_A_PIN)) handleKey(SDLK_ESCAPE, scrollOffset, maxVisible);
-        if (pressed & (1 << SELECT_A_PIN)) handleKey(SDLK_TAB, scrollOffset, maxVisible);
+        Uint32 now = SDL_GetTicks();
+        if (now - last_press_time > 80) {   // 80ms debounce
+            if (pressed & (1 << UP_A_PIN))     if (!(last_pressed & (1 << UP_A_PIN)))     handleKey(SDLK_UP, scrollOffset, maxVisible);
+            if (pressed & (1 << DOWN_A_PIN))   if (!(last_pressed & (1 << DOWN_A_PIN)))   handleKey(SDLK_DOWN, scrollOffset, maxVisible);
+            if (pressed & (1 << LEFT_A_PIN))   if (!(last_pressed & (1 << LEFT_A_PIN)))   handleKey(SDLK_LEFT, scrollOffset, maxVisible);
+            if (pressed & (1 << RIGHT_A_PIN))  if (!(last_pressed & (1 << RIGHT_A_PIN)))  handleKey(SDLK_RIGHT, scrollOffset, maxVisible);
+            if (pressed & (1 << A_A_PIN))      if (!(last_pressed & (1 << A_A_PIN)))      handleKey(SDLK_RETURN, scrollOffset, maxVisible);
+            if (pressed & (1 << B_B_PIN))      if (!(last_pressed & (1 << B_B_PIN)))      handleKey(SDLK_BACKSPACE, scrollOffset, maxVisible);  // B on B3
+            if (pressed & (1 << START_A_PIN))  if (!(last_pressed & (1 << START_A_PIN)))  handleKey(SDLK_ESCAPE, scrollOffset, maxVisible);
+            if (pressed & (1 << SELECT_A_PIN)) if (!(last_pressed & (1 << SELECT_A_PIN))) handleKey(SDLK_TAB, scrollOffset, maxVisible);
+
+            last_pressed = pressed;
+            last_press_time = now;
+            debug("MCP Buttons state: " + std::to_string(pressed) + " last press time: " + std::to_string(last_press_time));
+        }
 
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_QUIT) running = false;
