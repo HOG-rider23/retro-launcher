@@ -12,6 +12,22 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 
+namespace fs = std::filesystem;
+
+bool DEBUG_ENABLED = false;
+
+std::ofstream logFile;
+
+inline void debug(const std::string& msg) {
+    if (DEBUG_ENABLED) {
+        if (!logFile.is_open()) {
+            logFile.open("/var/log/retro-launcher/retro-launcher.log", std::ios::app);
+        }
+        logFile << "[DEBUG] " << msg << std::endl;
+        logFile.flush();
+    }
+}
+
 // === MCP23017 CONFIGURATION (your pins) ===
 const int I2C_BUS = 11;
 const uint8_t MCP_ADDR = 0x27;
@@ -76,23 +92,7 @@ uint16_t readMCPButtons() {
     return (~(data[0] | (data[1] << 8))) & 0xFFFF;
 }
 
-namespace fs = std::filesystem;
-
 const int FRAME_DELAY = 1000 / 30;
-
-bool DEBUG_ENABLED = false;
-
-std::ofstream logFile;
-
-inline void debug(const std::string& msg) {
-    if (DEBUG_ENABLED) {
-        if (!logFile.is_open()) {
-            logFile.open("/var/log/retro-launcher/retro-launcher.log", std::ios::app);
-        }
-        logFile << "[DEBUG] " << msg << std::endl;
-        logFile.flush();
-    }
-}
 
 int SCREEN_WIDTH  = 320;
 int SCREEN_HEIGHT = 240;
@@ -330,8 +330,21 @@ void launchROM(const RomEntry& entry) {
     if (pid == 0) {
         setsid();
         usleep(200000);
-        const char* args[] = { emulator.c_str(), romPath.c_str(), nullptr };
-        execvp(emulator.c_str(), const_cast<char* const*>(args));
+        
+        // Prepare arguments, optionally including debug flag
+        std::vector<const char*> args;
+        args.push_back(emulator.c_str());
+        args.push_back(romPath.c_str());
+        
+        // Pass debug flag if enabled
+        if (DEBUG_ENABLED) {
+            args.push_back("-d");
+            debug("Passing debug flag to emulator");
+        }
+        
+        args.push_back(nullptr);  // Null terminator for execvp
+        
+        execvp(emulator.c_str(), const_cast<char* const*>(args.data()));
         std::cerr << "Failed to launch: " << emulator << std::endl;
         _exit(1);
     } else if (pid > 0) {
