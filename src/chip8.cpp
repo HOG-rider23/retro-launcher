@@ -355,6 +355,7 @@ public:
 
     void handleKey(uint8_t key, bool pressed)
     {
+        debug("in handleKey: " + std::to_string(key));
         keypad[0x5] = false;  // UP
         keypad[0x8] = false;  // DOWN
         keypad[0x4] = false;  // LEFT
@@ -366,6 +367,7 @@ public:
 
         if (key < 16)
         {
+            debug("handleKey: " + std::to_string(key));
             keypad[key] = pressed;
         }
     }
@@ -457,6 +459,18 @@ int main(int argc, char** argv) {
 
             last_pressed = pressed;
             last_press_time = now;
+            
+            debug("Keypad stanje: ");
+            debug("------------------------------------------");
+            debug("UP     keypad[0x5]: " + std::to_string(chip8.keypad[0x5]));
+            debug("DOWN   keypad[0x5]: " + std::to_string(chip8.keypad[0x8]));
+            debug("LEFT   keypad[0x5]: " + std::to_string(chip8.keypad[0x4]));
+            debug("RIGHT  keypad[0x5]: " + std::to_string(chip8.keypad[0x6]));
+            debug("A      keypad[0x5]: " + std::to_string(chip8.keypad[0xA]));
+            debug("B      keypad[0x5]: " + std::to_string(chip8.keypad[0xB]));
+            debug("START  keypad[0x5]: " + std::to_string(chip8.keypad[0x7]));
+            debug("SELECT keypad[0x5]: " + std::to_string(chip8.keypad[0xC]));
+            debug("------------------------------------------");
             debug("MCP Buttons state: " + std::to_string(pressed) + " last press time: " + std::to_string(last_press_time));
         }
 
