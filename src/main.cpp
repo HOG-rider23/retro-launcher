@@ -67,38 +67,34 @@ bool initMCP() {
     }
 
     uint8_t cfg[2];
+    cfg[0] = IODIRA; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);  // Port A = inputs
+    cfg[0] = IODIRB; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);  // Port B = inputs
+    cfg[0] = GPPUA;  cfg[1] = 0xFF; write(mcp_fd, cfg, 2);  // Pull-ups A
+    cfg[0] = GPPUB;  cfg[1] = 0xFF; write(mcp_fd, cfg, 2);  // Pull-ups B
 
-    // Set both ports as inputs
-    cfg[0] = IODIRA; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
-    cfg[0] = IODIRB; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
-
-    // Enable internal pull-ups on ALL pins
-    cfg[0] = GPPUA; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
-    cfg[0] = GPPUB; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
-
-    debug("MCP23017 initialized with correct registers + pull-ups");
+    debug("MCP23017 initialized (separate reads + pull-ups)");
     return true;
 }
 
 uint16_t readMCPButtons() {
     if (mcp_fd < 0) return 0xFFFF;
 
+    uint8_t dataA = 0xFF, dataB = 0xFF;
+
+    // Read Port A
     uint8_t reg = GPIOA;
-    if (write(mcp_fd, &reg, 1) != 1) {
-        debug("Failed to set register pointer");
-        return 0xFFFF;
-    }
+    write(mcp_fd, &reg, 1);
+    read(mcp_fd, &dataA, 1);
 
-    uint8_t data[2] = {0};
-    if (read(mcp_fd, data, 2) != 2) {
-        debug("Failed to read GPIO registers");
-        return 0xFFFF;
-    }
+    // Read Port B (separate transaction - much more reliable)
+    reg = GPIOB;
+    write(mcp_fd, &reg, 1);
+    read(mcp_fd, &dataB, 1);
 
-    debug("Raw GPIOA=0x" + std::to_string(data[0]) + "  GPIOB=0x" + std::to_string(data[1]));
+    debug("Raw GPIOA=0x" + std::to_string(dataA) + "  GPIOB=0x" + std::to_string(dataB));
 
-    uint16_t raw = (static_cast<uint16_t>(data[1]) << 8) | data[0];
-    return (~raw) & 0xFFFF;   // active-low with pull-ups
+    uint16_t raw = (static_cast<uint16_t>(dataB) << 8) | dataA;
+    return (~raw) & 0xFFFF;   // active-low
 }
 
 const int FRAME_DELAY = 1000 / 30;
