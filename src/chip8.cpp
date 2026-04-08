@@ -485,8 +485,8 @@ int main(int argc, char** argv) {
         debug("UP     keypad[0x1]: " + std::to_string(chip8.keypad[0x1]));
         debug("DOWN   keypad[0x4]: " + std::to_string(chip8.keypad[0x4]));
         debug("RIGHT  keypad[0x6]: " + std::to_string(chip8.keypad[0x6]));
-        debug("A      keypad[0xA]: " + std::to_string(chip8.keypad[0x5]));
-        debug("B      keypad[0xB]: " + std::to_string(chip8.keypad[0x9]));
+        debug("A      keypad[0x5]: " + std::to_string(chip8.keypad[0x5]));
+        debug("B      keypad[0x9]: " + std::to_string(chip8.keypad[0x9]));
         debug("START  keypad[0x7]: " + std::to_string(chip8.keypad[0x7]));
         debug("SELECT keypad[0xC]: " + std::to_string(chip8.keypad[0xC]));
         debug("------------------------------------------");
