@@ -436,8 +436,8 @@ int main(int argc, char** argv) {
 
         Uint32 now = SDL_GetTicks();
         if (now - last_press_time > 80) {   // 80ms debounce
-            chip8.handleKey(0x5, (pressed & (1 << UP_A_PIN))     != 0);  // UP
-            chip8.handleKey(0x8, (pressed & (1 << DOWN_A_PIN))   != 0);  // DOWN
+            chip8.handleKey(0x1, (pressed & (1 << UP_A_PIN))     != 0);  // UP
+            chip8.handleKey(0x4, (pressed & (1 << DOWN_A_PIN))   != 0);  // DOWN
             chip8.handleKey(0x4, (pressed & (1 << LEFT_A_PIN))   != 0);  // LEFT
             chip8.handleKey(0x6, (pressed & (1 << RIGHT_A_PIN))  != 0);  // RIGHT
             chip8.handleKey(0xA, (pressed & (1 << A_A_PIN))      != 0);  // A
@@ -452,8 +452,8 @@ int main(int argc, char** argv) {
         // === IMPROVED KEYPAD DEBUG PRINT ===
         debug("Keypad stanje:");
         debug("------------------------------------------");
-        debug("UP     keypad[0x5]: " + std::to_string(chip8.keypad[0x5]));
-        debug("DOWN   keypad[0x8]: " + std::to_string(chip8.keypad[0x8]));
+        debug("UP     keypad[0x1]: " + std::to_string(chip8.keypad[0x5]));
+        debug("DOWN   keypad[0x4]: " + std::to_string(chip8.keypad[0x8]));
         debug("LEFT   keypad[0x4]: " + std::to_string(chip8.keypad[0x4]));
         debug("RIGHT  keypad[0x6]: " + std::to_string(chip8.keypad[0x6]));
         debug("A      keypad[0xA]: " + std::to_string(chip8.keypad[0xA]));
