@@ -449,7 +449,7 @@ int main(int argc, char** argv) {
 
         Uint32 now = SDL_GetTicks();
         if (now - last_press_time > 80) {   // 80ms debounce
-            if (pressed & (1 << UP_A_PIN))     if (!(last_pressed & (1 << UP_A_PIN)))     chip8.handleKey(0x1, true);  // UP    → 0x1
+            /*if (pressed & (1 << UP_A_PIN))     if (!(last_pressed & (1 << UP_A_PIN)))     chip8.handleKey(0x1, true);  // UP    → 0x1
             if (pressed & (1 << DOWN_A_PIN))   if (!(last_pressed & (1 << DOWN_A_PIN)))   chip8.handleKey(0x4, true);  // DOWN  → 0x4
             if (pressed & (1 << LEFT_A_PIN))   if (!(last_pressed & (1 << LEFT_A_PIN)))   chip8.handleKey(0x4, true);  // LEFT  → 0x4
             if (pressed & (1 << RIGHT_A_PIN))  if (!(last_pressed & (1 << RIGHT_A_PIN)))  chip8.handleKey(0x6, true);  // RIGHT → 0x6
@@ -457,7 +457,15 @@ int main(int argc, char** argv) {
             if (pressed & (1 << B_B_PIN))      if (!(last_pressed & (1 << B_B_PIN)))      chip8.handleKey(0x9, true);  // B
             if (pressed & (1 << START_A_PIN))  if (!(last_pressed & (1 << START_A_PIN)))  chip8.handleKey(0x7, true);  // START
             if (pressed & (1 << SELECT_A_PIN)) if (!(last_pressed & (1 << SELECT_A_PIN))) chip8.handleKey(0xC, true);  // SELECT
-
+            */
+            if (pressed == 3) chip8.handleKey(0x1, true);  // UP    → 0x1
+            if (pressed == 5) chip8.handleKey(0x4, true);  // DOWN  → 0x4
+            if (pressed == 9) chip8.handleKey(0x4, true);  // LEFT  → 0x4
+            if (pressed == 17) chip8.handleKey(0x6, true);  // RIGHT → 0x6
+            if (pressed == 129) chip8.handleKey(0x5, true);  // A
+            if (pressed == 2049) chip8.handleKey(0x9, true);  // B
+            if (pressed == 33) chip8.handleKey(0x7, true);  // START
+            if (pressed == 65) chip8.handleKey(0xC, true);  // SELECT
             last_pressed = pressed;
             last_press_time = now;
             debug("MCP Buttons state: " + std::to_string(pressed) + " last press time: " + std::to_string(last_press_time));
