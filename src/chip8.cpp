@@ -428,25 +428,23 @@ int main(int argc, char** argv) {
             if (e.type == SDL_QUIT) quit = true;
         }
 
-        // === READ MCP BUTTONS EVERY FRAME (continuous state for CHIP-8) ===
+        // === READ MCP BUTTONS EVERY FRAME (continuous state for CHIP-8 games) ===
         uint16_t pressed = readMCPButtons();
 
-        // Correct mapping for classic Pong (left paddle)
+        // Standard mapping for classic Pong (left paddle)
         chip8.handleKey(0x1, (pressed & (1 << UP_A_PIN))     != 0);  // UP    → 0x1
         chip8.handleKey(0x4, (pressed & (1 << DOWN_A_PIN))   != 0);  // DOWN  → 0x4
-        chip8.handleKey(0x4, (pressed & (1 << LEFT_A_PIN))   != 0);  // LEFT  → 0x4 (optional)
-        chip8.handleKey(0x6, (pressed & (1 << RIGHT_A_PIN))  != 0);  // RIGHT → 0x6 (optional)
+        chip8.handleKey(0x6, (pressed & (1 << RIGHT_A_PIN))  != 0);  // RIGHT → 0x6
         chip8.handleKey(0xA, (pressed & (1 << A_A_PIN))      != 0);  // A
         chip8.handleKey(0xB, (pressed & (1 << B_B_PIN))      != 0);  // B
         chip8.handleKey(0x7, (pressed & (1 << START_A_PIN))  != 0);  // START
         chip8.handleKey(0xC, (pressed & (1 << SELECT_A_PIN)) != 0);  // SELECT
 
-        // Correct debug print
+        // Debug keypad state
         debug("Keypad stanje:");
         debug("------------------------------------------");
         debug("UP     keypad[0x1]: " + std::to_string(chip8.keypad[0x1]));
         debug("DOWN   keypad[0x4]: " + std::to_string(chip8.keypad[0x4]));
-        debug("LEFT   keypad[0x4]: " + std::to_string(chip8.keypad[0x4]));
         debug("RIGHT  keypad[0x6]: " + std::to_string(chip8.keypad[0x6]));
         debug("A      keypad[0xA]: " + std::to_string(chip8.keypad[0xA]));
         debug("B      keypad[0xB]: " + std::to_string(chip8.keypad[0xB]));
