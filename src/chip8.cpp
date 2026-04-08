@@ -355,6 +355,14 @@ public:
 
     void handleKey(uint8_t key, bool pressed)
     {
+        keypad[0x1] = false;  // UP
+        keypad[0x4] = false;  // DOWN
+        keypad[0x6] = false;  // RIGHT
+        keypad[0x5] = false;  // A
+        keypad[0x9] = false;  // B
+        keypad[0x7] = false;  // START
+        keypad[0xC] = false;  // SELECT
+        
         if (key < 16)
         {
             keypad[key] = pressed;
