@@ -169,7 +169,13 @@ public:
     }
 
     void emulateCycle() {
-        if (pc >= 4094) { pc = 0x200; return; }
+        debug("--- emulateCycle() start --- pc = " + std::to_string(pc));
+
+        if (pc >= 4094) {
+            debug("PC overflow - resetting to 0x200");
+            pc = 0x200;
+            return;
+        }
 
         uint16_t op  = memory[pc] << 8 | memory[pc + 1];
         uint8_t  x   = (op & 0x0F00) >> 8;
@@ -178,26 +184,62 @@ public:
         uint8_t  nn  = op & 0x00FF;
         uint16_t nnn = op & 0x0FFF;
 
+        debug("Fetched opcode: 0x" + std::to_string(op) + " at pc=0x" + std::to_string(pc));
+
         pc += 2;
 
         switch (op & 0xF000) {
             case 0x0000:
-                if (nn == 0xE0) std::memset(display, 0, sizeof(display));
-                else if (nn == 0xEE) { if (sp > 0) pc = stack[--sp]; }
+                debug("0x0000 group");
+                if (nn == 0xE0) {
+                    debug("00E0 - Clear screen");
+                    std::memset(display, 0, sizeof(display));
+                } else if (nn == 0xEE) {
+                    debug("00EE - Return from subroutine");
+                    if (sp > 0) pc = stack[--sp];
+                }
                 break;
-            case 0x1000: pc = nnn; break;
+
+            case 0x1000:
+                debug("1nnn - Jump to 0x" + std::to_string(nnn));
+                pc = nnn;
+                break;
+
             case 0x2000:
+                debug("2nnn - Call subroutine at 0x" + std::to_string(nnn));
                 if (sp < 16) stack[sp++] = pc;
                 pc = nnn;
                 break;
-            case 0x3000: if (V[x] == nn) pc += 2; break;
-            case 0x4000: if (V[x] != nn) pc += 2; break;
-            case 0x5000: if (V[x] == V[y]) pc += 2; break;
-            case 0x6000: V[x] = nn; break;
-            case 0x7000: V[x] += nn; break;
+
+            case 0x3000:
+                debug("3xnn - Skip if V[" + std::to_string(x) + "] == 0x" + std::to_string(nn));
+                if (V[x] == nn) pc += 2;
+                break;
+
+            case 0x4000:
+                debug("4xnn - Skip if V[" + std::to_string(x) + "] != 0x" + std::to_string(nn));
+                if (V[x] != nn) pc += 2;
+                break;
+
+            case 0x5000:
+                debug("5xy0 - Skip if V[" + std::to_string(x) + "] == V[" + std::to_string(y) + "]");
+                if (V[x] == V[y]) pc += 2;
+                break;
+
+            case 0x6000:
+                debug("6xnn - V[" + std::to_string(x) + "] = 0x" + std::to_string(nn));
+                V[x] = nn;
+                break;
+
+            case 0x7000:
+                debug("7xnn - V[" + std::to_string(x) + "] += 0x" + std::to_string(nn));
+                V[x] += nn;
+                break;
+
             case 0x8000:
+                debug("8xyN group - n=" + std::to_string(n));
                 switch (n) {
-                    case 0x0: V[x]  = V[y]; break;
+                    case 0x0: V[x] = V[y]; break;
                     case 0x1: V[x] |= V[y]; V[0xF] = 0; break;
                     case 0x2: V[x] &= V[y]; V[0xF] = 0; break;
                     case 0x3: V[x] ^= V[y]; V[0xF] = 0; break;
@@ -208,46 +250,72 @@ public:
                     case 0xE: { uint8_t f=(V[x]&0x80)>>7; V[x]<<=1; V[0xF]=f; break; }
                 }
                 break;
-            case 0x9000: if (V[x] != V[y]) pc += 2; break;
-            case 0xA000: I = nnn; break;
-            case 0xB000: pc = nnn + V[0]; break;
-            case 0xC000: V[x] = (rng() & 0xFF) & nn; break;
-            case 0xD000: {
-                uint8_t vx = V[x] % CHIP8_W;
-                uint8_t vy = V[y] % CHIP8_H;
-                V[0xF] = 0;
-                for (uint8_t row = 0; row < n; ++row) {
-                    if (vy + row >= CHIP8_H) break;
-                    uint8_t sprite = memory[I + row];
-                    for (uint8_t col = 0; col < 8; ++col) {
-                        if (vx + col >= CHIP8_W) break;
-                        if (sprite & (0x80 >> col)) {
-                            size_t idx = (vy + row) * CHIP8_W + (vx + col);
-                            if (display[idx]) V[0xF] = 1;
-                            display[idx] ^= true;
+
+            case 0x9000:
+                debug("9xy0 - Skip if V[" + std::to_string(x) + "] != V[" + std::to_string(y) + "]");
+                if (V[x] != V[y]) pc += 2;
+                break;
+
+            case 0xA000:
+                debug("Annn - Set I = 0x" + std::to_string(nnn));
+                I = nnn;
+                break;
+
+            case 0xB000:
+                debug("Bnnn - Jump to 0x" + std::to_string(nnn) + " + V[0]");
+                pc = nnn + V[0];
+                break;
+
+            case 0xC000:
+                debug("Cxnn - V[" + std::to_string(x) + "] = random & 0x" + std::to_string(nn));
+                V[x] = (rng() & 0xFF) & nn;
+                break;
+
+            case 0xD000:
+                debug("Dxyn - Draw sprite at (" + std::to_string(V[x]) + "," + std::to_string(V[y]) + ") height " + std::to_string(n));
+                {
+                    uint8_t vx = V[x] % CHIP8_W;
+                    uint8_t vy = V[y] % CHIP8_H;
+                    V[0xF] = 0;
+                    for (uint8_t row = 0; row < n; ++row) {
+                        if (vy + row >= CHIP8_H) break;
+                        uint8_t sprite = memory[I + row];
+                        for (uint8_t col = 0; col < 8; ++col) {
+                            if (vx + col >= CHIP8_W) break;
+                            if (sprite & (0x80 >> col)) {
+                                size_t idx = (vy + row) * CHIP8_W + (vx + col);
+                                if (display[idx]) V[0xF] = 1;
+                                display[idx] ^= true;
+                            }
                         }
                     }
                 }
                 break;
-            }
+
             case 0xE000:
-                if      (nn == 0x9E &&  keypad[V[x] & 0xF]) pc += 2;
+                debug("ExNN - Key test for V[" + std::to_string(x) + "]");
+                if (nn == 0x9E && keypad[V[x] & 0xF]) pc += 2;
                 else if (nn == 0xA1 && !keypad[V[x] & 0xF]) pc += 2;
                 break;
+
             case 0xF000:
+                debug("FxNN - x=" + std::to_string(x) + " nn=0x" + std::to_string(nn));
                 switch (nn) {
                     case 0x07: V[x] = delay_timer; break;
-                    case 0x0A: {   // Fx0A - Wait for any key (Space Invaders fix)
+                    case 0x0A: {   // Fx0A - Wait for any key (critical for Space Invaders splash)
+                        debug("Fx0A - Waiting for any key press...");
                         bool any_key_pressed = false;
                         for (int k = 0; k < 16; ++k) {
                             if (keypad[k]) {
                                 V[x] = k;
                                 any_key_pressed = true;
+                                debug("Fx0A - Key pressed: " + std::to_string(k));
                                 break;
                             }
                         }
                         if (!any_key_pressed) {
-                            pc -= 2;   // Re-execute until a key is pressed
+                            debug("Fx0A - No key yet - re-executing instruction");
+                            pc -= 2;
                         }
                         break;
                     }
@@ -265,7 +333,9 @@ public:
                 }
                 break;
         }
-    }
+
+        debug("--- emulateCycle() end --- new pc = " + std::to_string(pc));
+    }   
 
     void updateTimers() {
         if (delay_timer > 0) delay_timer--;
