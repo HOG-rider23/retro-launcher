@@ -21,9 +21,9 @@ const uint8_t START_A_PIN  = 5;
 const uint8_t SELECT_A_PIN = 6;
 const uint8_t A_A_PIN      = 7;
 
+const uint8_t Y_B_PIN     = 0;
 const uint8_t X_B_PIN     = 1;
-const uint8_t Y_B_PIN     = 2;
-const uint8_t B_B_PIN     = 3;
+const uint8_t B_B_PIN     = 2;
 
 const uint8_t IODIRA = 0x00;
 const uint8_t IODIRB = 0x01;
