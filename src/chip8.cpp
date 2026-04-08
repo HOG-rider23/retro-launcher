@@ -353,7 +353,7 @@ public:
         if (sound_timer > 0) sound_timer--;
     }
 
-    void handleKey(uint8_t key, bool pressed)
+    void keypadReset()
     {
         keypad[0x1] = false;  // UP
         keypad[0x4] = false;  // DOWN
@@ -362,7 +362,10 @@ public:
         keypad[0x9] = false;  // B
         keypad[0x7] = false;  // START
         keypad[0xC] = false;  // SELECT
-        
+    }
+
+    void handleKey(uint8_t key, bool pressed)
+    {    
         if (key < 16)
         {
             keypad[key] = pressed;
@@ -454,6 +457,7 @@ int main(int argc, char** argv) {
         static Uint32 last_press_time = 0;
 
         uint16_t pressed = readMCPButtons();
+        chip8.keypadReset();  // Reset all keys before setting the current state
 
         Uint32 now = SDL_GetTicks();
         if (now - last_press_time > 80) {   // 80ms debounce
