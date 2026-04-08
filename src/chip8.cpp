@@ -370,10 +370,10 @@ int main(int argc, char** argv) {
         static Uint32 last_press_time = 0;
 
         uint16_t pressed = readMCPButtons();
-        chip8.keypadReset();  // Reset all keys before setting the current state
 
         Uint32 now = SDL_GetTicks();
         if (now - last_press_time > 80) {   // 80ms debounce
+            chip8.keypadReset();  // Reset all keys before setting the current state
             /*if (pressed & (1 << UP_A_PIN))     if (!(last_pressed & (1 << UP_A_PIN)))     chip8.handleKey(0x1, true);  // UP    → 0x1
             if (pressed & (1 << DOWN_A_PIN))   if (!(last_pressed & (1 << DOWN_A_PIN)))   chip8.handleKey(0x4, true);  // DOWN  → 0x4
             if (pressed & (1 << LEFT_A_PIN))   if (!(last_pressed & (1 << LEFT_A_PIN)))   chip8.handleKey(0x4, true);  // LEFT  → 0x4
