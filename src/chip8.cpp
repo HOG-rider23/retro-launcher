@@ -169,182 +169,95 @@ public:
     }
 
     void emulateCycle() {
-        uint16_t op = memory[pc] << 8 | memory[pc + 1];
-        pc += 2;
+        if (pc >= 4094) { pc = 0x200; return; }
 
-        uint8_t x = (op & 0x0F00) >> 8;
-        uint8_t y = (op & 0x00F0) >> 4;
-        uint8_t n = op & 0x000F;
-        uint8_t nn = op & 0x00FF;
+        uint16_t op  = memory[pc] << 8 | memory[pc + 1];
+        uint8_t  x   = (op & 0x0F00) >> 8;
+        uint8_t  y   = (op & 0x00F0) >> 4;
+        uint8_t  n   = op & 0x000F;
+        uint8_t  nn  = op & 0x00FF;
         uint16_t nnn = op & 0x0FFF;
+
+        pc += 2;
 
         switch (op & 0xF000) {
             case 0x0000:
-                if (op == 0x00E0) {
-                    // CLEAR display
-                    std::memset(display, 0, sizeof(display));
-                    display_changed = true;
-                } else if (op == 0x00EE) {
-                    // RETURN
-                    sp--;
-                    pc = stack[sp];
-                }
+                if (nn == 0xE0) std::memset(display, 0, sizeof(display));
+                else if (nn == 0xEE) { if (sp > 0) pc = stack[--sp]; }
                 break;
-
-            case 0x1000:
-                // JUMP to nnn
-                pc = nnn;
-                break;
-
+            case 0x1000: pc = nnn; break;
             case 0x2000:
-                // CALL subroutine at nnn
-                stack[sp] = pc;
-                sp++;
+                if (sp < 16) stack[sp++] = pc;
                 pc = nnn;
                 break;
-
-            case 0x3000:
-                // SKIP if Vx == nn
-                if (V[x] == nn) pc += 2;
-                break;
-
-            case 0x4000:
-                // SKIP if Vx != nn
-                if (V[x] != nn) pc += 2;
-                break;
-
-            case 0x5000:
-                // SKIP if Vx == Vy
-                if (V[x] == V[y]) pc += 2;
-                break;
-
-            case 0x6000:
-                // SET Vx = nn
-                V[x] = nn;
-                break;
-
-            case 0x7000:
-                // ADD Vx += nn
-                V[x] += nn;
-                break;
-
-            case 0x8000: {
-                uint8_t vy = V[y];
+            case 0x3000: if (V[x] == nn) pc += 2; break;
+            case 0x4000: if (V[x] != nn) pc += 2; break;
+            case 0x5000: if (V[x] == V[y]) pc += 2; break;
+            case 0x6000: V[x] = nn; break;
+            case 0x7000: V[x] += nn; break;
+            case 0x8000:
                 switch (n) {
-                    case 0x0: V[x] = vy; break;                        // SET Vx = Vy
-                    case 0x1: V[x] |= vy; break;                       // OR
-                    case 0x2: V[x] &= vy; break;                       // AND
-                    case 0x3: V[x] ^= vy; break;                       // XOR
-                    case 0x4: {                                        // ADD Vx += Vy, set VF
-                        uint16_t sum = V[x] + vy;
-                        V[0xF] = (sum > 255) ? 1 : 0;
-                        V[x] = sum & 0xFF;
-                        break;
-                    }
-                    case 0x5: {                                        // SUB Vx -= Vy
-                        V[0xF] = (V[x] > vy) ? 1 : 0;
-                        V[x] -= vy;
-                        break;
-                    }
-                    case 0x6: {                                        // SHR Vx >>= 1
-                        V[0xF] = V[x] & 1;
-                        V[x] >>= 1;
-                        break;
-                    }
-                    case 0x7: {                                        // SUBN Vx = Vy - Vx
-                        V[0xF] = (vy > V[x]) ? 1 : 0;
-                        V[x] = vy - V[x];
-                        break;
-                    }
-                    case 0xE: {                                        // SHL Vx <<= 1
-                        V[0xF] = (V[x] >> 7) & 1;
-                        V[x] <<= 1;
-                        break;
-                    }
+                    case 0x0: V[x]  = V[y]; break;
+                    case 0x1: V[x] |= V[y]; V[0xF] = 0; break;
+                    case 0x2: V[x] &= V[y]; V[0xF] = 0; break;
+                    case 0x3: V[x] ^= V[y]; V[0xF] = 0; break;
+                    case 0x4: { uint16_t r = V[x]+V[y]; V[x]=r&0xFF; V[0xF]=(r>255); break; }
+                    case 0x5: { uint8_t f=(V[x]>=V[y]); V[x]-=V[y]; V[0xF]=f; break; }
+                    case 0x6: { uint8_t f=V[x]&1; V[x]>>=1; V[0xF]=f; break; }
+                    case 0x7: { uint8_t f=(V[y]>=V[x]); V[x]=V[y]-V[x]; V[0xF]=f; break; }
+                    case 0xE: { uint8_t f=(V[x]&0x80)>>7; V[x]<<=1; V[0xF]=f; break; }
                 }
                 break;
-            }
-
-            case 0x9000:
-                // SKIP if Vx != Vy
-                if (V[x] != V[y]) pc += 2;
-                break;
-
-            case 0xA000:
-                // SET I = nnn
-                I = nnn;
-                break;
-
-            case 0xB000:
-                // JUMP to nnn + V0
-                pc = nnn + V[0];
-                break;
-
-            case 0xC000:
-                // SET Vx = random & nn
-                V[x] = (rng() & 0xFF) & nn;
-                break;
-
+            case 0x9000: if (V[x] != V[y]) pc += 2; break;
+            case 0xA000: I = nnn; break;
+            case 0xB000: pc = nnn + V[0]; break;
+            case 0xC000: V[x] = (rng() & 0xFF) & nn; break;
             case 0xD000: {
-                // DRAW sprite at (Vx, Vy) with height n
-                uint8_t vx = V[x];
-                uint8_t vy = V[y];
+                uint8_t vx = V[x] % CHIP8_W;
+                uint8_t vy = V[y] % CHIP8_H;
                 V[0xF] = 0;
-
-                for (int row = 0; row < n; ++row) {
+                for (uint8_t row = 0; row < n; ++row) {
+                    if (vy + row >= CHIP8_H) break;
                     uint8_t sprite = memory[I + row];
-                    for (int col = 0; col < 8; ++col) {
+                    for (uint8_t col = 0; col < 8; ++col) {
+                        if (vx + col >= CHIP8_W) break;
                         if (sprite & (0x80 >> col)) {
-                            int px = (vx + col) & 63;  // Wrap at 64
-                            int py = (vy + row) & 31;  // Wrap at 32
-                            int idx = py * CHIP8_W + px;
+                            size_t idx = (vy + row) * CHIP8_W + (vx + col);
                             if (display[idx]) V[0xF] = 1;
-                            display[idx] ^= 1;
-                            display_changed = true;
+                            display[idx] ^= true;
                         }
                     }
                 }
                 break;
             }
-
-            case 0xE000: {
-                if (nn == 0x9E) {
-                    // SKIP if key Vx is pressed
-                    if (keypad[V[x] & 0xF]) pc += 2;
-                } else if (nn == 0xA1) {
-                    // SKIP if key Vx is NOT pressed
-                    if (!keypad[V[x] & 0xF]) pc += 2;
-                }
+            case 0xE000:
+                if      (nn == 0x9E &&  keypad[V[x] & 0xF]) pc += 2;
+                else if (nn == 0xA1 && !keypad[V[x] & 0xF]) pc += 2;
                 break;
-            }
-
-            case 0xF000: {
+            case 0xF000:
                 switch (nn) {
-                    case 0x07: V[x] = delay_timer; break;              // SET Vx = delay_timer
-                    case 0x15: delay_timer = V[x]; break;              // SET delay_timer = Vx
-                    case 0x18: sound_timer = V[x]; break;              // SET sound_timer = Vx
-                    case 0x1E: I += V[x]; break;                       // ADD I += Vx
-                    case 0x29: I = 0x50 + (V[x] & 0xF) * 5; break;    // SET I = font address
-                    case 0x33: {                                       // BCD (Binary Coded Decimal)
-                        uint8_t val = V[x];
-                        memory[I] = val / 100;
-                        memory[I + 1] = (val / 10) % 10;
-                        memory[I + 2] = val % 10;
+                    case 0x07: V[x] = delay_timer; break;
+                    case 0x0A: {
+                        bool pressed = false;
+                        for (int k = 0; k < 16; ++k) {
+                            if (keypad[k]) { V[x] = k; pressed = true; break; }
+                        }
+                        if (!pressed) pc -= 2;
                         break;
                     }
-                    case 0x55: {                                       // STORE V0...Vx to memory at I
-                        for (uint8_t i = 0; i <= x; ++i)
-                            memory[I + i] = V[i];
+                    case 0x15: delay_timer = V[x]; break;
+                    case 0x18: sound_timer = V[x]; break;
+                    case 0x1E: I += V[x]; break;
+                    case 0x29: I = 0x50 + (V[x] & 0xF) * 5; break;
+                    case 0x33:
+                        memory[I]   = V[x] / 100;
+                        memory[I+1] = (V[x] / 10) % 10;
+                        memory[I+2] = V[x] % 10;
                         break;
-                    }
-                    case 0x65: {                                       // LOAD V0...Vx from memory at I
-                        for (uint8_t i = 0; i <= x; ++i)
-                            V[i] = memory[I + i];
-                        break;
-                    }
+                    case 0x55: for (int i = 0; i <= x; ++i) memory[I + i] = V[i]; break;
+                    case 0x65: for (int i = 0; i <= x; ++i) V[i] = memory[I + i]; break;
                 }
                 break;
-            }
         }
     }
 
