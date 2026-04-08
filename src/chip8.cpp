@@ -237,12 +237,18 @@ public:
             case 0xF000:
                 switch (nn) {
                     case 0x07: V[x] = delay_timer; break;
-                    case 0x0A: {
-                        bool pressed = false;
+                    case 0x0A: {   // Fx0A - Wait for any key (Space Invaders fix)
+                        bool any_key_pressed = false;
                         for (int k = 0; k < 16; ++k) {
-                            if (keypad[k]) { V[x] = k; pressed = true; break; }
+                            if (keypad[k]) {
+                                V[x] = k;
+                                any_key_pressed = true;
+                                break;
+                            }
                         }
-                        if (!pressed) pc -= 2;
+                        if (!any_key_pressed) {
+                            pc -= 2;   // Re-execute until a key is pressed
+                        }
                         break;
                     }
                     case 0x15: delay_timer = V[x]; break;
@@ -352,19 +358,6 @@ int main(int argc, char** argv) {
             if (e.type == SDL_QUIT) quit = true;
         }
 
-        // === READ MCP BUTTONS EVERY FRAME (continuous state for CHIP-8 games) ===
-        /*uint16_t pressed = readMCPButtons();
-
-        // Standard mapping for classic Pong (left paddle)
-        chip8.handleKey(0x1, (pressed & (1 << UP_A_PIN))     != 0);  // UP    → 0x1
-        chip8.handleKey(0x4, (pressed & (1 << DOWN_A_PIN))   != 0);  // DOWN  → 0x4
-        chip8.handleKey(0x4, (pressed & (1 << LEFT_A_PIN))   != 0);  // LEFT  → 0x4
-        chip8.handleKey(0x6, (pressed & (1 << RIGHT_A_PIN))  != 0);  // RIGHT → 0x6
-        chip8.handleKey(0xA, (pressed & (1 << A_A_PIN))      != 0);  // A
-        chip8.handleKey(0xB, (pressed & (1 << B_B_PIN))      != 0);  // B
-        chip8.handleKey(0x7, (pressed & (1 << START_A_PIN))  != 0);  // START
-        chip8.handleKey(0xC, (pressed & (1 << SELECT_A_PIN)) != 0);  // SELECT*/
-
         // === READ MCP BUTTONS WITH EDGE DETECTION ===
         static uint16_t last_pressed = 0xFFFF;
         static Uint32 last_press_time = 0;
@@ -374,15 +367,6 @@ int main(int argc, char** argv) {
         Uint32 now = SDL_GetTicks();
         if (now - last_press_time > 80) {   // 80ms debounce
             chip8.keypadReset();  // Reset all keys before setting the current state
-            /*if (pressed & (1 << UP_A_PIN))     if (!(last_pressed & (1 << UP_A_PIN)))     chip8.handleKey(0x1, true);  // UP    → 0x1
-            if (pressed & (1 << DOWN_A_PIN))   if (!(last_pressed & (1 << DOWN_A_PIN)))   chip8.handleKey(0x4, true);  // DOWN  → 0x4
-            if (pressed & (1 << LEFT_A_PIN))   if (!(last_pressed & (1 << LEFT_A_PIN)))   chip8.handleKey(0x4, true);  // LEFT  → 0x4
-            if (pressed & (1 << RIGHT_A_PIN))  if (!(last_pressed & (1 << RIGHT_A_PIN)))  chip8.handleKey(0x6, true);  // RIGHT → 0x6
-            if (pressed & (1 << A_A_PIN))      if (!(last_pressed & (1 << A_A_PIN)))      chip8.handleKey(0x5, true);  // A
-            if (pressed & (1 << B_B_PIN))      if (!(last_pressed & (1 << B_B_PIN)))      chip8.handleKey(0x9, true);  // B
-            if (pressed & (1 << START_A_PIN))  if (!(last_pressed & (1 << START_A_PIN)))  chip8.handleKey(0x7, true);  // START
-            if (pressed & (1 << SELECT_A_PIN)) if (!(last_pressed & (1 << SELECT_A_PIN))) chip8.handleKey(0xC, true);  // SELECT
-            */
             if (pressed == 3) chip8.handleKey(0x1, true);  // UP    → 0x1
             if (pressed == 5) chip8.handleKey(0x4, true);  // DOWN  → 0x4
             if (pressed == 9) chip8.handleKey(0x4, true);  // LEFT  → 0x4
