@@ -294,7 +294,7 @@ public:
 
             case 0xE000:
                 debug("ExNN - Key test for V[" + std::to_string(x) + "]");
-                if (nn == 0x9E && keypad[V[x] & 0xF]) pc += 2;
+                if (nn == 0x9E &&  keypad[V[x] & 0xF]) pc += 2;
                 else if (nn == 0xA1 && !keypad[V[x] & 0xF]) pc += 2;
                 break;
 
@@ -302,7 +302,7 @@ public:
                 debug("FxNN - x=" + std::to_string(x) + ", nn=0x" + std::to_string(nn));
                 switch (nn) {
                     case 0x07: V[x] = delay_timer; break;
-                    case 0x0A: {
+                    case 0x0A: {   // Fx0A - Wait for any key
                         debug("Fx0A - Waiting for any key press...");
                         bool any_key_pressed = false;
                         for (int k = 0; k < 16; ++k) {
@@ -314,7 +314,7 @@ public:
                             }
                         }
                         if (!any_key_pressed) {
-                            debug("Fx0A - No key yet - re-executing");
+                            debug("Fx0A - No key yet - re-executing instruction");
                             pc -= 2;
                         }
                         break;
@@ -333,6 +333,9 @@ public:
                 }
                 break;
         }
+
+        // <<< IMPORTANT: Update timers EVERY cycle for tight loops like Space Invaders >>>
+        updateTimers();
 
         debug("--- emulateCycle() end --- new pc = 0x" + std::to_string(pc));
     }   
