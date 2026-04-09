@@ -169,7 +169,7 @@ public:
     }
 
     void emulateCycle() {
-        debug("--- emulateCycle() start --- pc = " + std::to_string(pc));
+        debug("--- emulateCycle() start --- pc = 0x" + std::to_string(pc));
 
         if (pc >= 4094) {
             debug("PC overflow - resetting to 0x200");
@@ -237,7 +237,7 @@ public:
                 break;
 
             case 0x8000:
-                debug("8xyN group - n=" + std::to_string(n));
+                debug("8xyN group (n=" + std::to_string(n) + ")");
                 switch (n) {
                     case 0x0: V[x] = V[y]; break;
                     case 0x1: V[x] |= V[y]; V[0xF] = 0; break;
@@ -272,7 +272,7 @@ public:
                 break;
 
             case 0xD000:
-                debug("Dxyn - Draw sprite at (" + std::to_string(V[x]) + "," + std::to_string(V[y]) + ") height " + std::to_string(n));
+                debug("Dxyn - Draw sprite at Vx=" + std::to_string(V[x]) + ", Vy=" + std::to_string(V[y]) + ", height=" + std::to_string(n));
                 {
                     uint8_t vx = V[x] % CHIP8_W;
                     uint8_t vy = V[y] % CHIP8_H;
@@ -299,10 +299,10 @@ public:
                 break;
 
             case 0xF000:
-                debug("FxNN - x=" + std::to_string(x) + " nn=0x" + std::to_string(nn));
+                debug("FxNN - x=" + std::to_string(x) + ", nn=0x" + std::to_string(nn));
                 switch (nn) {
                     case 0x07: V[x] = delay_timer; break;
-                    case 0x0A: {   // Fx0A - Wait for any key (critical for Space Invaders splash)
+                    case 0x0A: {
                         debug("Fx0A - Waiting for any key press...");
                         bool any_key_pressed = false;
                         for (int k = 0; k < 16; ++k) {
@@ -314,7 +314,7 @@ public:
                             }
                         }
                         if (!any_key_pressed) {
-                            debug("Fx0A - No key yet - re-executing instruction");
+                            debug("Fx0A - No key yet - re-executing");
                             pc -= 2;
                         }
                         break;
@@ -334,7 +334,7 @@ public:
                 break;
         }
 
-        debug("--- emulateCycle() end --- new pc = " + std::to_string(pc));
+        debug("--- emulateCycle() end --- new pc = 0x" + std::to_string(pc));
     }   
 
     void updateTimers() {
