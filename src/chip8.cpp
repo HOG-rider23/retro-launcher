@@ -299,6 +299,7 @@ public:
 
             case 0xD000:
                 debug("Dxyn - Draw sprite at Vx=" + std::to_string(V[x]) + ", Vy=" + std::to_string(V[y]) + ", height=" + std::to_string(n));
+                debug("Dxyn - Draw sprite height=" + std::to_string(n) + " at Vx=" + std::to_string(V[x]) + ", Vy=" + std::to_string(V[y]) + ", I=0x" + std::to_string(I));
                 {
                     uint8_t vx = V[x] % CHIP8_W;
                     uint8_t vy = V[y] % CHIP8_H;
@@ -349,8 +350,9 @@ public:
                     case 0x18: sound_timer = V[x]; break;
                     case 0x1E: I += V[x]; break;
                     case 0x29: I = 0x50 + (V[x] & 0xF) * 5; break;
-                    case 0x30:  // SCHIP Fx30 - Set I to large 10-byte font sprite for digit in Vx
+                    case 0x30:  // SCHIP Fx30 - large 10-byte font sprite for digit in Vx
                         I = 0x100 + (V[x] & 0xF) * 10;
+                        debug(">>> Fx30 EXECUTED! I=0x" + std::to_string(I) + " (digit " + std::to_string(V[x]&0xF) + ")");
                         break;
                     case 0x33:
                         memory[I]   = V[x] / 100;
