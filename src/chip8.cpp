@@ -387,10 +387,10 @@ public:
         keypad[0x1] = false;  // UP
         keypad[0x4] = false;  // DOWN
         keypad[0x6] = false;  // RIGHT
-        keypad[0x5] = false;  // A
+        keypad[0x0] = false;  // A
         keypad[0x9] = false;  // B
         keypad[0x7] = false;  // START
-        keypad[0x0] = false;  // SELECT
+        keypad[0xC] = false;  // SELECT
     }
 
     void handleKey(uint8_t key, bool pressed)
@@ -481,10 +481,10 @@ int main(int argc, char** argv) {
             if (pressed == 5) chip8.handleKey(0x4, true);  // DOWN  → 0x4
             if (pressed == 9) chip8.handleKey(0x4, true);  // LEFT  → 0x4
             if (pressed == 17) chip8.handleKey(0x6, true);  // RIGHT → 0x6
-            if (pressed == 129) chip8.handleKey(0x5, true);  // A
+            if (pressed == 129) chip8.handleKey(0x0, true);  // A
             if (pressed == 2049) chip8.handleKey(0x9, true);  // B
             if (pressed == 33) chip8.handleKey(0x7, true);  // START
-            if (pressed == 65) chip8.handleKey(0x0, true);  // SELECT
+            if (pressed == 65) chip8.handleKey(0xC, true);  // SELECT
             last_pressed = pressed;
             last_press_time = now;
             debug("MCP Buttons state: " + std::to_string(pressed) + " last press time: " + std::to_string(last_press_time));
@@ -496,10 +496,10 @@ int main(int argc, char** argv) {
         debug("UP     keypad[0x1]: " + std::to_string(chip8.keypad[0x1]));
         debug("DOWN   keypad[0x4]: " + std::to_string(chip8.keypad[0x4]));
         debug("RIGHT  keypad[0x6]: " + std::to_string(chip8.keypad[0x6]));
-        debug("A      keypad[0x5]: " + std::to_string(chip8.keypad[0x5]));
+        debug("A      keypad[0x0]: " + std::to_string(chip8.keypad[0x0]));
         debug("B      keypad[0x9]: " + std::to_string(chip8.keypad[0x9]));
         debug("START  keypad[0x7]: " + std::to_string(chip8.keypad[0x7]));
-        debug("SELECT keypad[0x0]: " + std::to_string(chip8.keypad[0x0]));
+        debug("SELECT keypad[0xC]: " + std::to_string(chip8.keypad[0xC]));
         debug("------------------------------------------");
         debug("MCP Buttons state: " + std::to_string(pressed));
 
