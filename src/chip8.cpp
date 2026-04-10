@@ -324,6 +324,9 @@ public:
 
             case 0xE000:
                 debug("ExNN - Key test for V[" + std::to_string(x) + "]");
+                debug("   Key test: V[" + std::to_string(x) + "] = " + std::to_string(V[x]) + 
+                    " → checking keypad[" + std::to_string(V[x] & 0xF) + "] = " + 
+                    std::to_string(keypad[V[x] & 0xF]));
                 if (nn == 0x9E &&  keypad[V[x] & 0xF]) pc += 2;
                 else if (nn == 0xA1 && !keypad[V[x] & 0xF]) pc += 2;
                 break;
