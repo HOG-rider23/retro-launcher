@@ -390,7 +390,7 @@ public:
         keypad[0x5] = false;  // A
         keypad[0x9] = false;  // B
         keypad[0x7] = false;  // START
-        keypad[0xC] = false;  // SELECT
+        keypad[0x0] = false;  // SELECT
     }
 
     void handleKey(uint8_t key, bool pressed)
@@ -484,7 +484,7 @@ int main(int argc, char** argv) {
             if (pressed == 129) chip8.handleKey(0x5, true);  // A
             if (pressed == 2049) chip8.handleKey(0x9, true);  // B
             if (pressed == 33) chip8.handleKey(0x7, true);  // START
-            if (pressed == 65) chip8.handleKey(0xC, true);  // SELECT
+            if (pressed == 65) chip8.handleKey(0x0, true);  // SELECT
             last_pressed = pressed;
             last_press_time = now;
             debug("MCP Buttons state: " + std::to_string(pressed) + " last press time: " + std::to_string(last_press_time));
@@ -499,7 +499,7 @@ int main(int argc, char** argv) {
         debug("A      keypad[0x5]: " + std::to_string(chip8.keypad[0x5]));
         debug("B      keypad[0x9]: " + std::to_string(chip8.keypad[0x9]));
         debug("START  keypad[0x7]: " + std::to_string(chip8.keypad[0x7]));
-        debug("SELECT keypad[0xC]: " + std::to_string(chip8.keypad[0xC]));
+        debug("SELECT keypad[0x0]: " + std::to_string(chip8.keypad[0x0]));
         debug("------------------------------------------");
         debug("MCP Buttons state: " + std::to_string(pressed));
 
