@@ -210,7 +210,9 @@ public:
         uint8_t  nn  = op & 0x00FF;
         uint16_t nnn = op & 0x0FFF;
 
-        debug("Fetched opcode: 0x" + std::to_string(op) + " at pc=0x" + std::to_string(pc));
+        char buf[64];
+        snprintf(buf, sizeof(buf), "Fetched opcode: 0x%04X at pc=0x%04X", op, pc - 2);  // pc already +=2
+        debug(buf);
 
         pc += 2;
 
@@ -307,6 +309,7 @@ public:
                     for (uint8_t row = 0; row < n; ++row) {
                         if (vy + row >= CHIP8_H) break;
                         uint8_t sprite = memory[I + row];
+                        debug("  Sprite row=" + std::to_string(row) + " byte=0x" + std::to_string(sprite));
                         for (uint8_t col = 0; col < 8; ++col) {
                             if (vx + col >= CHIP8_W) break;
                             if (sprite & (0x80 >> col)) {
