@@ -153,32 +153,6 @@ public:
             0xF0,0x80,0xF0,0x80,0xF0, 0xF0,0x80,0xF0,0x80,0x80
         };
         std::memcpy(memory + 0x50, font, 80);
-
-        // === NEW: Large 8×10 SCHIP font (required by David Winter's ROM) ===
-/*        const uint8_t largeFont[16][10] = {
-            {0xF0,0x90,0x90,0x90,0xF0,0x00,0x00,0x00,0x00,0x00}, // 0
-            {0x20,0x60,0x20,0x20,0x70,0x00,0x00,0x00,0x00,0x00}, // 1
-            {0xF0,0x10,0xF0,0x80,0xF0,0x00,0x00,0x00,0x00,0x00}, // 2
-            {0xF0,0x10,0xF0,0x10,0xF0,0x00,0x00,0x00,0x00,0x00}, // 3
-            {0x90,0x90,0xF0,0x10,0x10,0x00,0x00,0x00,0x00,0x00}, // 4
-            {0xF0,0x80,0xF0,0x10,0xF0,0x00,0x00,0x00,0x00,0x00}, // 5
-            {0xF0,0x80,0xF0,0x90,0xF0,0x00,0x00,0x00,0x00,0x00}, // 6
-            {0xF0,0x10,0x10,0x10,0x10,0x00,0x00,0x00,0x00,0x00}, // 7
-            {0xF0,0x90,0xF0,0x90,0xF0,0x00,0x00,0x00,0x00,0x00}, // 8
-            {0xF0,0x90,0xF0,0x10,0xF0,0x00,0x00,0x00,0x00,0x00}, // 9
-            {0xF0,0x90,0xF0,0x90,0x90,0x00,0x00,0x00,0x00,0x00}, // A
-            {0xE0,0x90,0xE0,0x90,0xE0,0x00,0x00,0x00,0x00,0x00}, // B
-            {0xF0,0x80,0x80,0x80,0xF0,0x00,0x00,0x00,0x00,0x00}, // C
-            {0xE0,0x90,0x90,0x90,0xE0,0x00,0x00,0x00,0x00,0x00}, // D
-            {0xF0,0x80,0xF0,0x80,0xF0,0x00,0x00,0x00,0x00,0x00}, // E
-            {0xF0,0x80,0xF0,0x80,0x80,0x00,0x00,0x00,0x00,0x00}  // F
-        };
-
-        for (int i = 0; i < 16; ++i) {
-            for (int j = 0; j < 10; ++j) {
-                memory[0x100 + i * 10 + j] = largeFont[i][j];
-            }
-        }*/
     }
 
     bool loadROM(const std::string& path) {
@@ -194,7 +168,7 @@ public:
         return true;
     }
 
-        void emulateCycle() {
+    void emulateCycle() {
         if (pc >= 4094) { pc = 0x200; return; }
 
         uint16_t op  = memory[pc] << 8 | memory[pc + 1];
@@ -285,7 +259,7 @@ public:
                 }
                 break;
         }
-    }  
+    }
 
     void updateTimers() {
         if (delay_timer > 0) delay_timer--;
@@ -297,7 +271,7 @@ public:
         keypad[0x1] = false;  // UP
         keypad[0x4] = false;  // DOWN
         keypad[0x6] = false;  // RIGHT
-        keypad[0x0] = false;  // A
+        keypad[0x5] = false;  // A
         keypad[0x9] = false;  // B
         keypad[0x7] = false;  // START
         keypad[0xC] = false;  // SELECT
@@ -378,6 +352,19 @@ int main(int argc, char** argv) {
             if (e.type == SDL_QUIT) quit = true;
         }
 
+        // === READ MCP BUTTONS EVERY FRAME (continuous state for CHIP-8 games) ===
+        /*uint16_t pressed = readMCPButtons();
+
+        // Standard mapping for classic Pong (left paddle)
+        chip8.handleKey(0x1, (pressed & (1 << UP_A_PIN))     != 0);  // UP    → 0x1
+        chip8.handleKey(0x4, (pressed & (1 << DOWN_A_PIN))   != 0);  // DOWN  → 0x4
+        chip8.handleKey(0x4, (pressed & (1 << LEFT_A_PIN))   != 0);  // LEFT  → 0x4
+        chip8.handleKey(0x6, (pressed & (1 << RIGHT_A_PIN))  != 0);  // RIGHT → 0x6
+        chip8.handleKey(0xA, (pressed & (1 << A_A_PIN))      != 0);  // A
+        chip8.handleKey(0xB, (pressed & (1 << B_B_PIN))      != 0);  // B
+        chip8.handleKey(0x7, (pressed & (1 << START_A_PIN))  != 0);  // START
+        chip8.handleKey(0xC, (pressed & (1 << SELECT_A_PIN)) != 0);  // SELECT*/
+
         // === READ MCP BUTTONS WITH EDGE DETECTION ===
         static uint16_t last_pressed = 0xFFFF;
         static Uint32 last_press_time = 0;
@@ -387,11 +374,20 @@ int main(int argc, char** argv) {
         Uint32 now = SDL_GetTicks();
         if (now - last_press_time > 80) {   // 80ms debounce
             chip8.keypadReset();  // Reset all keys before setting the current state
+            /*if (pressed & (1 << UP_A_PIN))     if (!(last_pressed & (1 << UP_A_PIN)))     chip8.handleKey(0x1, true);  // UP    → 0x1
+            if (pressed & (1 << DOWN_A_PIN))   if (!(last_pressed & (1 << DOWN_A_PIN)))   chip8.handleKey(0x4, true);  // DOWN  → 0x4
+            if (pressed & (1 << LEFT_A_PIN))   if (!(last_pressed & (1 << LEFT_A_PIN)))   chip8.handleKey(0x4, true);  // LEFT  → 0x4
+            if (pressed & (1 << RIGHT_A_PIN))  if (!(last_pressed & (1 << RIGHT_A_PIN)))  chip8.handleKey(0x6, true);  // RIGHT → 0x6
+            if (pressed & (1 << A_A_PIN))      if (!(last_pressed & (1 << A_A_PIN)))      chip8.handleKey(0x5, true);  // A
+            if (pressed & (1 << B_B_PIN))      if (!(last_pressed & (1 << B_B_PIN)))      chip8.handleKey(0x9, true);  // B
+            if (pressed & (1 << START_A_PIN))  if (!(last_pressed & (1 << START_A_PIN)))  chip8.handleKey(0x7, true);  // START
+            if (pressed & (1 << SELECT_A_PIN)) if (!(last_pressed & (1 << SELECT_A_PIN))) chip8.handleKey(0xC, true);  // SELECT
+            */
             if (pressed == 3) chip8.handleKey(0x1, true);  // UP    → 0x1
             if (pressed == 5) chip8.handleKey(0x4, true);  // DOWN  → 0x4
             if (pressed == 9) chip8.handleKey(0x4, true);  // LEFT  → 0x4
             if (pressed == 17) chip8.handleKey(0x6, true);  // RIGHT → 0x6
-            if (pressed == 129) chip8.handleKey(0x0, true);  // A
+            if (pressed == 129) chip8.handleKey(0x5, true);  // A
             if (pressed == 2049) chip8.handleKey(0x9, true);  // B
             if (pressed == 33) chip8.handleKey(0x7, true);  // START
             if (pressed == 65) chip8.handleKey(0xC, true);  // SELECT
@@ -406,7 +402,7 @@ int main(int argc, char** argv) {
         debug("UP     keypad[0x1]: " + std::to_string(chip8.keypad[0x1]));
         debug("DOWN   keypad[0x4]: " + std::to_string(chip8.keypad[0x4]));
         debug("RIGHT  keypad[0x6]: " + std::to_string(chip8.keypad[0x6]));
-        debug("A      keypad[0x0]: " + std::to_string(chip8.keypad[0x0]));
+        debug("A      keypad[0x5]: " + std::to_string(chip8.keypad[0x5]));
         debug("B      keypad[0x9]: " + std::to_string(chip8.keypad[0x9]));
         debug("START  keypad[0x7]: " + std::to_string(chip8.keypad[0x7]));
         debug("SELECT keypad[0xC]: " + std::to_string(chip8.keypad[0xC]));
@@ -414,7 +410,7 @@ int main(int argc, char** argv) {
         debug("MCP Buttons state: " + std::to_string(pressed));
 
         for (int i = 0; i < CYCLES_PER_FRAME; i++) chip8.emulateCycle();
-        // chip8.updateTimers();
+        chip8.updateTimers();
 
         // Render
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
