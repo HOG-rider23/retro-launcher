@@ -7,7 +7,7 @@ Type=simple
 User=jernej
 WorkingDirectory=/home/jernej/retro-launcher
 Environment=SDL_VIDEODRIVER=kmsdrm
-ExecStart=/home/jernej/retro-launcher/retro-launcher --debug
+ExecStart=/home/jernej/retro-launcher/retro-launcher
 Restart=on-failure
 RestartSec=5
 

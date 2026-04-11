@@ -303,7 +303,7 @@ void launchROM(const RomEntry& entry) {
 
     if (entry.system == "chip8") {
         // CHIP-8 emulator is in the emulators/ subfolder
-        emulator = (baseDir / "emulators" / "chip8").string();
+        emulator = (baseDir / "emulators" / "setup-chip8.sh").string();
     } else if (entry.system == "gb" || entry.system == "gbc" || entry.system == "gba") {
         // Third-party emulator (mgba) is in the roms/ subfolder
         emulator = (baseDir / "roms" / "mgba" / "build" / "sdl" / "mgba").string();
@@ -336,12 +336,6 @@ void launchROM(const RomEntry& entry) {
         std::vector<const char*> args;
         args.push_back(emulator.c_str());
         args.push_back(romPath.c_str());
-        
-        // Pass debug flag if enabled
-        if (DEBUG_ENABLED) {
-            args.push_back("-d");
-            debug("Passing debug flag to emulator");
-        }
         
         args.push_back(nullptr);  // Null terminator for execvp
         
