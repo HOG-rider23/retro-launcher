@@ -503,11 +503,11 @@ int main(int argc,char* argv[]){
 
         auto now=clock::now();
         chip8.keypadReset();  // Reset all keys before setting the current state
-        if (pressed == 3) chip8.handleKey(0x1, true);  // UP    → 0x1
+        /*if (pressed == 3) chip8.handleKey(0x1, true);  // UP    → 0x1
         if (pressed == 5) chip8.handleKey(0x4, true);  // DOWN  → 0x4
         if (pressed == 9) chip8.handleKey(0x4, true);  // LEFT  → 0x4
         if (pressed == 17) chip8.handleKey(0x6, true);  // RIGHT → 0x6
-        if (pressed == 129) chip8.handleKey(0x0, true);  // A
+        if (pressed == 129) chip8.handleKey(0x5, true);  // A
         if (pressed == 2049) chip8.handleKey(0x9, true);  // B
         if (pressed == 33) {running=false;break;}  // START
         if (pressed == 65) chip8.handleKey(0xC, true);  // SELECT
@@ -520,11 +520,36 @@ int main(int argc,char* argv[]){
         debug("UP     keypad[0x1]: " + std::to_string(chip8.keys[0x1]));
         debug("DOWN   keypad[0x4]: " + std::to_string(chip8.keys[0x4]));
         debug("RIGHT  keypad[0x6]: " + std::to_string(chip8.keys[0x6]));
-        debug("A      keypad[0x0]: " + std::to_string(chip8.keys[0x0]));
+        debug("A      keypad[0x0]: " + std::to_string(chip8.keys[0x5]));
+        debug("B      keypad[0x9]: " + std::to_string(chip8.keys[0x9]));
+        debug("START  keypad[0x7]: " + std::to_string(chip8.keys[0x7]));
+        debug("SELECT keypad[0xC]: " + std::to_string(chip8.keys[0xC]));
+        debug("------------------------------------------");*/
+
+        if (pressed == 3) chip8.handleKey(0x8, true);  // UP    → 0x1
+        if (pressed == 5) chip8.handleKey(0x2, true);  // DOWN  → 0x4
+        if (pressed == 9) chip8.handleKey(0x4, true);  // LEFT  → 0x4
+        if (pressed == 17) chip8.handleKey(0x6, true);  // RIGHT → 0x6
+        if (pressed == 129) chip8.handleKey(0x5, true);  // A
+        if (pressed == 2049) chip8.handleKey(0x9, true);  // B
+        if (pressed == 33) {running=false;break;}  // START
+        if (pressed == 65) chip8.handleKey(0xC, true);  // SELECT
+        last_pressed = pressed;
+        debug("MCP Buttons state: " + std::to_string(pressed));
+
+        // Debug keypad state
+        debug("Keypad stanje:");
+        debug("------------------------------------------");
+        debug("UP     keypad[0x1]: " + std::to_string(chip8.keys[0x1]));
+        debug("DOWN   keypad[0x4]: " + std::to_string(chip8.keys[0x4]));
+        debug("RIGHT  keypad[0x6]: " + std::to_string(chip8.keys[0x6]));
+        debug("A      keypad[0x0]: " + std::to_string(chip8.keys[0x5]));
         debug("B      keypad[0x9]: " + std::to_string(chip8.keys[0x9]));
         debug("START  keypad[0x7]: " + std::to_string(chip8.keys[0x7]));
         debug("SELECT keypad[0xC]: " + std::to_string(chip8.keys[0xC]));
         debug("------------------------------------------");
+
+
         debug("MCP Buttons state: " + std::to_string(pressed));
 
         if(now-lastCpu  >=cpuPeriod  ){chip8.step();      lastCpu  +=cpuPeriod;  }
