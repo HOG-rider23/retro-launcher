@@ -509,7 +509,7 @@ int main(int argc,char* argv[]){
         if (pressed == 17) chip8.handleKey(0x6, true);  // RIGHT → 0x6
         if (pressed == 129) chip8.handleKey(0x0, true);  // A
         if (pressed == 2049) chip8.handleKey(0x9, true);  // B
-        if (pressed == 33) chip8.handleKey(0x7, true);  // START
+        if (pressed == 33) running=false;break;  // START
         if (pressed == 65) chip8.handleKey(0xC, true);  // SELECT
         last_pressed = pressed;
         debug("MCP Buttons state: " + std::to_string(pressed));
