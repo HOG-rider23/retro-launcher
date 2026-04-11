@@ -303,7 +303,7 @@ void launchROM(const RomEntry& entry) {
 
     if (entry.system == "chip8") {
         // CHIP-8 emulator is in the emulators/ subfolder
-        emulator = (baseDir / "emulators" / "setup-chip8.sh").string();
+        emulator = (baseDir / "emulators" / "start-chip8.sh").string();
     } else if (entry.system == "gb" || entry.system == "gbc" || entry.system == "gba") {
         // Third-party emulator (mgba) is in the roms/ subfolder
         emulator = (baseDir / "roms" / "mgba" / "build" / "sdl" / "mgba").string();
