@@ -498,25 +498,21 @@ int main(int argc,char* argv[]){
 
         // === READ MCP BUTTONS WITH EDGE DETECTION ===
         static uint16_t last_pressed = 0xFFFF;
-        static Uint32 last_press_time = 0;
 
         uint16_t pressed = readMCPButtons();
 
-        Uint32 now = SDL_GetTicks();
-        if (now - last_press_time > 80) {   // 80ms debounce
-            chip8.keypadReset();  // Reset all keys before setting the current state
-            if (pressed == 3) chip8.handleKey(0x1, true);  // UP    → 0x1
-            if (pressed == 5) chip8.handleKey(0x4, true);  // DOWN  → 0x4
-            if (pressed == 9) chip8.handleKey(0x4, true);  // LEFT  → 0x4
-            if (pressed == 17) chip8.handleKey(0x6, true);  // RIGHT → 0x6
-            if (pressed == 129) chip8.handleKey(0x0, true);  // A
-            if (pressed == 2049) chip8.handleKey(0x9, true);  // B
-            if (pressed == 33) chip8.handleKey(0x7, true);  // START
-            if (pressed == 65) chip8.handleKey(0xC, true);  // SELECT
-            last_pressed = pressed;
-            last_press_time = now;
-            debug("MCP Buttons state: " + std::to_string(pressed) + " last press time: " + std::to_string(last_press_time));
-        }
+        auto now=clock::now();
+        chip8.keypadReset();  // Reset all keys before setting the current state
+        if (pressed == 3) chip8.handleKey(0x1, true);  // UP    → 0x1
+        if (pressed == 5) chip8.handleKey(0x4, true);  // DOWN  → 0x4
+        if (pressed == 9) chip8.handleKey(0x4, true);  // LEFT  → 0x4
+        if (pressed == 17) chip8.handleKey(0x6, true);  // RIGHT → 0x6
+        if (pressed == 129) chip8.handleKey(0x0, true);  // A
+        if (pressed == 2049) chip8.handleKey(0x9, true);  // B
+        if (pressed == 33) chip8.handleKey(0x7, true);  // START
+        if (pressed == 65) chip8.handleKey(0xC, true);  // SELECT
+        last_pressed = pressed;
+        debug("MCP Buttons state: " + std::to_string(pressed));
 
         // Debug keypad state
         debug("Keypad stanje:");
@@ -531,7 +527,6 @@ int main(int argc,char* argv[]){
         debug("------------------------------------------");
         debug("MCP Buttons state: " + std::to_string(pressed));
 
-        auto now=clock::now();
         if(now-lastCpu  >=cpuPeriod  ){chip8.step();      lastCpu  +=cpuPeriod;  }
         if(now-lastTimer>=timerPeriod){
             chip8.tickTimers();
