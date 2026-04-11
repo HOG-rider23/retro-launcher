@@ -19,7 +19,6 @@ install:
 	cp $(OUT_DIR)/retro-launcher $(INSTALL_DIR)/retro-launcher
 	cp $(OUT_DIR)/chip8 $(INSTALL_DIR)/emulators/
 	cp ../third-party/* $(INSTALL_DIR)/roms/
-	cp ../setup/start-chip8.sh $(INSTALL_DIR)/emulators/
 
 clean:
 	rm -rf $(OUT_DIR)
