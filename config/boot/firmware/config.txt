@@ -1,6 +1,6 @@
 rm_boost=1
 dtparam=i2c_arm=off
-gpu_mem=16
+gpu_mem=64
 
 # 3.5inch DPI LCD (640x480) - official for Pi Zero 2 W / Trixie
 dtoverlay=vc4-kms-v3d
