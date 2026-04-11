@@ -135,9 +135,12 @@ public:
     uint8_t delay_timer = 0;
     uint8_t sound_timer = 0;
 
-    
-    uint32_t display[CHIP8_W * CHIP8_H]{};
+    uint32_t display[128 * 64]{};   // always 128x64 buffer
 
+    bool highRes = false;           // SuperCHIP high-res flag
+    unsigned int currentW = 64;
+    unsigned int currentH = 32;
+    unsigned int currentScale = 10;
     
     bool drawFlag = true;
 
@@ -157,6 +160,12 @@ public:
             0xF0,0x80,0xF0,0x80,0xF0, 0xF0,0x80,0xF0,0x80,0x80
         };
         std::memcpy(memory + 0x50, font, 80);
+        highRes = false;
+        currentW = 64;
+        currentH = 32;
+        currentScale = 10;
+        std::memset(display, 0, sizeof(display));
+
     }
 
     bool loadROM(const std::string& path) {
@@ -186,8 +195,29 @@ public:
 
         switch (op & 0xF000) {
             case 0x0000:
-                if (nn == 0xE0) { std::memset(display, 0, sizeof(display)); drawFlag = true; }
-                else if (nn == 0xEE) { if (sp > 0) pc = stack[--sp]; }
+                if (nn == 0xE0) {
+                    std::memset(display, 0, sizeof(display));
+                    drawFlag = true;
+                }
+                else if (nn == 0xEE) {
+                    if (sp > 0) pc = stack[--sp];
+                }
+                else if (nn == 0xFE) {          // low-res
+                    highRes = false;
+                    currentW = 64;
+                    currentH = 32;
+                    currentScale = 10;
+                    std::memset(display, 0, sizeof(display));
+                    drawFlag = true;
+                }
+                else if (nn == 0xFF) {          // high-res
+                    highRes = true;
+                    currentW = 128;
+                    currentH = 64;
+                    currentScale = 5;
+                    std::memset(display, 0, sizeof(display));
+                    drawFlag = true;
+                }
                 break;
             case 0x1000: pc = nnn; break;
             case 0x2000:
@@ -217,22 +247,19 @@ public:
             case 0xB000: pc = nnn + V[0]; break;
             case 0xC000: V[x] = (rng() & 0xFF) & nn; break;
             case 0xD000: {
-            
-                uint8_t vx = V[x] % CHIP8_W;
-                uint8_t vy = V[y] % CHIP8_H;
+                uint8_t vx = V[x] % currentW;
+                uint8_t vy = V[y] % currentH;
                 V[0xF] = 0;
+
                 for (uint8_t row = 0; row < n; ++row) {
+                    if (vy + row >= currentH) break;
                     uint8_t sprite = memory[I + row];
                     for (uint8_t col = 0; col < 8; ++col) {
+                        if (vx + col >= currentW) break;
                         if (sprite & (0x80 >> col)) {
-                           
-                            uint8_t px = (vx + col) % CHIP8_W;
-                            uint8_t py = (vy + row) % CHIP8_H;
-                            uint32_t* screenPixel = &display[py * CHIP8_W + px];
-                            if (*screenPixel == 0xFFFFFFFF) {
-                                V[0xF] = 1;
-                            }
-                            *screenPixel ^= 0xFFFFFFFF;
+                            size_t idx = (vy + row) * 128 + (vx + col);  // always 128-wide
+                            if (display[idx] == 0xFFFFFFFF) V[0xF] = 1;
+                            display[idx] ^= 0xFFFFFFFF;
                         }
                     }
                 }
@@ -328,20 +355,16 @@ int main(int argc, char** argv) {
     SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 
    
+    // === HIGH-RES COMPATIBLE TEXTURE (always 128x64) ===
     SDL_Texture* texture = SDL_CreateTexture(
         renderer,
         SDL_PIXELFORMAT_RGBA8888,
         SDL_TEXTUREACCESS_STREAMING,
-        CHIP8_W, CHIP8_H
+        128,          // maximum width (SuperCHIP)
+        64            // maximum height (SuperCHIP)
     );
 
-    // Destination rect: centred in the window, scaled up
-    SDL_Rect destRect = {
-        (int)OFFSET_X,
-        (int)OFFSET_Y,
-        (int)(CHIP8_W * SCALE),
-        (int)(CHIP8_H * SCALE)
-    };
+    debug("SDL texture created (128x64 for high-res support)");
 
     debug("SDL initialized");
 
@@ -440,7 +463,25 @@ int main(int argc, char** argv) {
            
             if (chip8.drawFlag) {
                 chip8.drawFlag = false;
-                SDL_UpdateTexture(texture, nullptr, chip8.display, CHIP8_W * sizeof(uint32_t));
+
+                // Dynamic resolution for low-res (64x32) and high-res (128x64)
+                unsigned int drawW     = chip8.highRes ? 128 : 64;
+                unsigned int drawH     = chip8.highRes ? 64  : 32;
+                unsigned int drawScale = chip8.highRes ? 5   : 10;
+
+                // Center vertically on the 640x480 screen
+                unsigned int offsetY = (SCREEN_H - drawH * drawScale) / 2;
+
+                SDL_Rect destRect = {
+                    (int)OFFSET_X,                    // left border (usually 0)
+                    (int)offsetY,
+                    (int)(drawW * drawScale),
+                    (int)(drawH * drawScale)
+                };
+
+                // Update the full 128-wide buffer (stride is always 128)
+                SDL_UpdateTexture(texture, nullptr, chip8.display, 128 * sizeof(uint32_t));
+
                 SDL_RenderClear(renderer);
                 SDL_RenderCopy(renderer, texture, nullptr, &destRect);
                 SDL_RenderPresent(renderer);
