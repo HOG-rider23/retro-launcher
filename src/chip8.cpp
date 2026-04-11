@@ -53,6 +53,29 @@
 #include <string>
 #include <thread>
 
+// === MCP23017 CONFIGURATION ===
+const int I2C_BUS = 11;
+const uint8_t MCP_ADDR = 0x27;
+
+const uint8_t UP_A_PIN     = 1;
+const uint8_t DOWN_A_PIN   = 2;
+const uint8_t LEFT_A_PIN   = 3;
+const uint8_t RIGHT_A_PIN  = 4;
+const uint8_t START_A_PIN  = 5;
+const uint8_t SELECT_A_PIN = 6;
+const uint8_t A_A_PIN      = 7;
+
+const uint8_t X_B_PIN     = 1;
+const uint8_t Y_B_PIN     = 2;
+const uint8_t B_B_PIN     = 3;
+
+const uint8_t IODIRA = 0x00;
+const uint8_t IODIRB = 0x01;
+const uint8_t GPIOA  = 0x12;
+const uint8_t GPIOB  = 0x13;
+const uint8_t GPPUA  = 0x0C;
+const uint8_t GPPUB  = 0x0D;
+
 // ─── Display config ───────────────────────────────────────────────────────────
 
 static constexpr int DISPLAY_W = 64;
@@ -119,65 +142,60 @@ static constexpr uint16_t BTN_X      = (1 << 8);  // GPIOB pin 1
 static constexpr uint16_t BTN_Y      = (1 << 9);  // GPIOB pin 2
 static constexpr uint16_t BTN_B      = (1 << 10); // GPIOB pin 3
 
-// Button → CHIP-8 key mapping
-static constexpr struct { uint16_t mask; uint8_t key; } BTN_MAP[] = {
-    { BTN_UP,     0x1 },
-    { BTN_DOWN,   0x4 },
-    { BTN_LEFT,   0x4 },  // LEFT also maps to DOWN (same as original)
-    { BTN_RIGHT,  0x6 },
-    { BTN_A,      0x0 },
-    { BTN_B,      0x9 },
-    { BTN_START,  0x7 },
-    { BTN_SELECT, 0xC },
-};
+// MCP23017
+int mcp_fd = -1;
 
-struct MCPGamepad {
-    int      fd        = -1;
-    uint16_t prevState = 0;
+bool DEBUG_ENABLED = false;
+std::ofstream logFile;
 
-    bool init() {
-        char path[32];
-        snprintf(path, sizeof(path), "/dev/i2c-%d", MCP_I2C_BUS);
-        fd = open(path, O_RDWR);
-        if (fd < 0) return false;
-        if (ioctl(fd, I2C_SLAVE, MCP_ADDR) < 0) { close(fd); fd = -1; return false; }
-        writeReg(MCP_IODIRA, 0xFF);
-        writeReg(MCP_IODIRB, 0xFF);
-        writeReg(MCP_GPPUA,  0xFF);
-        writeReg(MCP_GPPUB,  0xFF);
-        return true;
-    }
-
-    // Read hardware and apply press/release edges to chip8 keys[].
-    void poll(std::array<bool, 16>& keys) {
-        if (fd < 0) return;
-        uint8_t reg = MCP_GPIOA;
-        if (write(fd, &reg, 1) != 1) return;
-        uint8_t data[2] = {};
-        if (read(fd, data, 2) != 2) return;
-
-        uint16_t raw     = (static_cast<uint16_t>(data[1]) << 8) | data[0];
-        uint16_t current = (~raw) & 0xFFFF;  // active-low → active-high
-
-        uint16_t justPressed  = current  & ~prevState;
-        uint16_t justReleased = prevState & ~current;
-        prevState = current;
-
-        for (const auto& b : BTN_MAP) {
-            if (justPressed  & b.mask) keys[b.key] = true;
-            if (justReleased & b.mask) keys[b.key] = false;
+inline void debug(const std::string& msg) {
+    if (DEBUG_ENABLED) {
+        if (!logFile.is_open()) {
+            logFile.open("/var/log/retro-launcher/chip8.log", std::ios::app);
         }
+        logFile << "[DEBUG] " << msg << std::endl;
+        logFile.flush();
+    }
+}
+
+bool initMCP() {
+    char path[32];
+    snprintf(path, sizeof(path), "/dev/i2c-%d", I2C_BUS);
+    mcp_fd = open(path, O_RDWR);
+    if (mcp_fd < 0) {
+        debug("Failed to open I2C bus");
+        return false;
+    }
+    if (ioctl(mcp_fd, I2C_SLAVE, MCP_ADDR) < 0) {
+        close(mcp_fd); mcp_fd = -1;
+        debug("Failed to set I2C address");
+        return false;
     }
 
-    bool available() const { return fd >= 0; }
-    ~MCPGamepad() { if (fd >= 0) close(fd); }
+    uint8_t cfg[2];
+    cfg[0] = IODIRA; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
+    cfg[0] = IODIRB; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
+    cfg[0] = GPPUA;  cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
+    cfg[0] = GPPUB;  cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
 
-private:
-    void writeReg(uint8_t reg, uint8_t val) {
-        uint8_t buf[2] = { reg, val };
-        write(fd, buf, 2);
-    }
-};
+    debug("MCP23017 initialized (B button on B3)");
+    return true;
+}
+
+uint16_t readMCPButtons() {
+    if (mcp_fd < 0) return 0xFFFF;
+
+    uint8_t reg = GPIOA;
+    if (write(mcp_fd, &reg, 1) != 1) return 0xFFFF;
+
+    uint8_t data[2] = {0};
+    if (read(mcp_fd, data, 2) != 2) return 0xFFFF;
+
+    debug("Raw GPIOA=0x" + std::to_string(data[0]) + "  GPIOB=0x" + std::to_string(data[1]));
+
+    uint16_t raw = (static_cast<uint16_t>(data[1]) << 8) | data[0];
+    return (~raw) & 0xFFFF;   // active-low
+}
 
 // ─── Keyboard fallback map ────────────────────────────────────────────────────
 
@@ -286,11 +304,34 @@ struct Chip8 {
         }
     }
 
-    void keyDown(uint8_t key) {
-        keys[key] = true;
-        if (waitKey) { V[waitReg] = key; waitKey = false; }
+    void keypadReset()
+    {
+        keys[0x0] = false;  // A
+        keys[0x1] = false;  // UP
+        keys[0x2] = false;
+        keys[0x3] = false;
+        keys[0x4] = false;  // DOWN
+        keys[0x5] = false;
+        keys[0x6] = false;  // RIGHT
+        keys[0x7] = false;  // START
+        keys[0x8] = false;
+        keys[0x9] = false;  // B
+        keys[0xA] = false;
+        keys[0xC] = false;  // SELECT
+        keys[0xD] = false;
+        keys[0xE] = false;
+        keys[0xF] = false;
     }
-    void keyUp(uint8_t key) { keys[key] = false; }
+
+    void handleKey(uint8_t key, bool pressed)
+    {    
+        if (key < 16)
+        {
+            waitKey=false;
+            keys[key] = pressed;
+            debug("handleKey: keys[" + std::to_string(key) + "] = " + std::to_string(pressed));
+        }
+    }
 };
 
 // ─── Audio ────────────────────────────────────────────────────────────────────
@@ -428,8 +469,7 @@ int main(int argc,char* argv[]){
     Chip8    chip8;
     Renderer ren;
     Buzzer   buzzer;
-    MCPGamepad gamepad;
-    
+
     try{
         chip8.loadROM(argv[1]);
         ren.init("CHIP-8");
@@ -439,7 +479,7 @@ int main(int argc,char* argv[]){
         SDL_Quit(); return 1;
     }
 
-    if (gamepad.init())
+    if(initMCP())
         std::cout << "MCP23017 gamepad connected\n";
     else
         std::cout << "MCP23017 not found — using keyboard\n";
@@ -459,14 +499,48 @@ int main(int argc,char* argv[]){
                ev.key.keysym.scancode==SDL_SCANCODE_ESCAPE){running=false;break;}
             for(auto&[sc,key]:KEY_MAP){
                 if(ev.key.keysym.scancode==sc){
-                    if(ev.type==SDL_KEYDOWN) chip8.keyDown(key);
-                    if(ev.type==SDL_KEYUP)   chip8.keyUp(key);
+                    if(ev.type==SDL_KEYDOWN) 
+                        chip8.handleKey(key, true);
+                    else if(ev.type==SDL_KEYUP)
+                        chip8.keypadReset();
                 }
             }
         }
 
-        // ── MCP23017 gamepad ──
-        gamepad.poll(chip8.keys);
+        // === READ MCP BUTTONS WITH EDGE DETECTION ===
+        static uint16_t last_pressed = 0xFFFF;
+        static Uint32 last_press_time = 0;
+
+        uint16_t pressed = readMCPButtons();
+
+        Uint32 now = SDL_GetTicks();
+        if (now - last_press_time > 80) {   // 80ms debounce
+            chip8.keypadReset();  // Reset all keys before setting the current state
+            if (pressed == 3) chip8.handleKey(0x1, true);  // UP    → 0x1
+            if (pressed == 5) chip8.handleKey(0x4, true);  // DOWN  → 0x4
+            if (pressed == 9) chip8.handleKey(0x4, true);  // LEFT  → 0x4
+            if (pressed == 17) chip8.handleKey(0x6, true);  // RIGHT → 0x6
+            if (pressed == 129) chip8.handleKey(0x0, true);  // A
+            if (pressed == 2049) chip8.handleKey(0x9, true);  // B
+            if (pressed == 33) chip8.handleKey(0x7, true);  // START
+            if (pressed == 65) chip8.handleKey(0xC, true);  // SELECT
+            last_pressed = pressed;
+            last_press_time = now;
+            debug("MCP Buttons state: " + std::to_string(pressed) + " last press time: " + std::to_string(last_press_time));
+        }
+
+        // Debug keypad state
+        debug("Keypad stanje:");
+        debug("------------------------------------------");
+        debug("UP     keypad[0x1]: " + std::to_string(chip8.keys[0x1]));
+        debug("DOWN   keypad[0x4]: " + std::to_string(chip8.keys[0x4]));
+        debug("RIGHT  keypad[0x6]: " + std::to_string(chip8.keys[0x6]));
+        debug("A      keypad[0x0]: " + std::to_string(chip8.keys[0x0]));
+        debug("B      keypad[0x9]: " + std::to_string(chip8.keys[0x9]));
+        debug("START  keypad[0x7]: " + std::to_string(chip8.keys[0x7]));
+        debug("SELECT keypad[0xC]: " + std::to_string(chip8.keys[0xC]));
+        debug("------------------------------------------");
+        debug("MCP Buttons state: " + std::to_string(pressed));
 
         auto now=clock::now();
         if(now-lastCpu  >=cpuPeriod  ){chip8.step();      lastCpu  +=cpuPeriod;  }
