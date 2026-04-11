@@ -119,17 +119,6 @@ static constexpr std::array<uint8_t,80> FONT = {
     0xF0,0x80,0xF0,0x80,0xF0, 0xF0,0x80,0xF0,0x80,0x80,
 };
 
-// ─── MCP23017 Gamepad ─────────────────────────────────────────────────────────
-
-static constexpr int     MCP_I2C_BUS = 11;
-static constexpr uint8_t MCP_ADDR    = 0x27;
-
-static constexpr uint8_t MCP_IODIRA = 0x00;
-static constexpr uint8_t MCP_IODIRB = 0x01;
-static constexpr uint8_t MCP_GPPUA  = 0x0C;
-static constexpr uint8_t MCP_GPPUB  = 0x0D;
-static constexpr uint8_t MCP_GPIOA  = 0x12;
-
 // Button bit-masks in 16-bit word (GPIOB<<8 | GPIOA), active-low inverted
 static constexpr uint16_t BTN_UP     = (1 << 0);  // GPIOA pin 1
 static constexpr uint16_t BTN_DOWN   = (1 << 1);  // GPIOA pin 2
