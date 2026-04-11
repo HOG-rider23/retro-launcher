@@ -56,7 +56,7 @@ static constexpr int SCREEN_H  = 480;
 
 // Game area: 640×320, centred vertically → 80 px black bars top and bottom
 static constexpr int GAME_W   = 640;
-static constexpr int GAME_H   = 320;
+static constexpr int GAME_H   = 480;
 static constexpr int OFFSET_X = 0;
 static constexpr int OFFSET_Y = (SCREEN_H - GAME_H) / 2;   // 80
 
