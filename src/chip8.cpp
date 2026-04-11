@@ -447,6 +447,13 @@ static bool initSDL(){
 
 int main(int argc,char* argv[]){
     // Parse command-line arguments for debug flag
+    
+    
+    
+    //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    DEBUG_ENABLED = true;
+    //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
     for (int i = 1; i < argc; ++i) {
         if (std::string(argv[i]) == "-d" || std::string(argv[i]) == "--debug") {
             DEBUG_ENABLED = true;
@@ -457,12 +464,12 @@ int main(int argc,char* argv[]){
 
     debug("Loading ROM: " + std::string(argv[1]));
     
-    if (argc < 3) {
+    if (argc < 2) {
         std::cout << "Usage: " << argv[0] << " rom.ch8 [-d|--debug]\n";
         return 1;
     }
 
-    
+
     if(!initSDL()){
         std::cerr<<"SDL_Init failed: "<<SDL_GetError()<<'\n';
         return 1;
