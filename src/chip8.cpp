@@ -36,10 +36,16 @@
  */
 
 #include <SDL2/SDL.h>
+#include <linux/i2c-dev.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
+
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstdint>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <random>
@@ -90,11 +96,100 @@ static constexpr std::array<uint8_t,80> FONT = {
     0xF0,0x80,0xF0,0x80,0xF0, 0xF0,0x80,0xF0,0x80,0x80,
 };
 
-static const std::array<std::pair<SDL_Scancode,uint8_t>,16> KEY_MAP = {{
-    {SDL_SCANCODE_X,0x0},{SDL_SCANCODE_1,0x1},{SDL_SCANCODE_2,0x2},{SDL_SCANCODE_3,0x3},
-    {SDL_SCANCODE_Q,0x4},{SDL_SCANCODE_W,0x5},{SDL_SCANCODE_E,0x6},{SDL_SCANCODE_A,0x7},
-    {SDL_SCANCODE_S,0x8},{SDL_SCANCODE_D,0x9},{SDL_SCANCODE_Z,0xA},{SDL_SCANCODE_C,0xB},
-    {SDL_SCANCODE_4,0xC},{SDL_SCANCODE_R,0xD},{SDL_SCANCODE_F,0xE},{SDL_SCANCODE_V,0xF},
+// ─── MCP23017 Gamepad ─────────────────────────────────────────────────────────
+
+static constexpr int     MCP_I2C_BUS = 11;
+static constexpr uint8_t MCP_ADDR    = 0x27;
+
+static constexpr uint8_t MCP_IODIRA = 0x00;
+static constexpr uint8_t MCP_IODIRB = 0x01;
+static constexpr uint8_t MCP_GPPUA  = 0x0C;
+static constexpr uint8_t MCP_GPPUB  = 0x0D;
+static constexpr uint8_t MCP_GPIOA  = 0x12;
+
+// Button bit-masks in 16-bit word (GPIOB<<8 | GPIOA), active-low inverted
+static constexpr uint16_t BTN_UP     = (1 << 0);  // GPIOA pin 1
+static constexpr uint16_t BTN_DOWN   = (1 << 1);  // GPIOA pin 2
+static constexpr uint16_t BTN_LEFT   = (1 << 2);  // GPIOA pin 3
+static constexpr uint16_t BTN_RIGHT  = (1 << 3);  // GPIOA pin 4
+static constexpr uint16_t BTN_START  = (1 << 4);  // GPIOA pin 5
+static constexpr uint16_t BTN_SELECT = (1 << 5);  // GPIOA pin 6
+static constexpr uint16_t BTN_A      = (1 << 6);  // GPIOA pin 7
+static constexpr uint16_t BTN_X      = (1 << 8);  // GPIOB pin 1
+static constexpr uint16_t BTN_Y      = (1 << 9);  // GPIOB pin 2
+static constexpr uint16_t BTN_B      = (1 << 10); // GPIOB pin 3
+
+// Button → CHIP-8 key mapping
+static constexpr struct { uint16_t mask; uint8_t key; } BTN_MAP[] = {
+    { BTN_UP,     0x1 },
+    { BTN_DOWN,   0x4 },
+    { BTN_LEFT,   0x4 },  // LEFT also maps to DOWN (same as original)
+    { BTN_RIGHT,  0x6 },
+    { BTN_A,      0x0 },
+    { BTN_B,      0x9 },
+    { BTN_START,  0x7 },
+    { BTN_SELECT, 0xC },
+};
+
+struct MCPGamepad {
+    int      fd        = -1;
+    uint16_t prevState = 0;
+
+    bool init() {
+        char path[32];
+        snprintf(path, sizeof(path), "/dev/i2c-%d", MCP_I2C_BUS);
+        fd = open(path, O_RDWR);
+        if (fd < 0) return false;
+        if (ioctl(fd, I2C_SLAVE, MCP_ADDR) < 0) { close(fd); fd = -1; return false; }
+        writeReg(MCP_IODIRA, 0xFF);
+        writeReg(MCP_IODIRB, 0xFF);
+        writeReg(MCP_GPPUA,  0xFF);
+        writeReg(MCP_GPPUB,  0xFF);
+        return true;
+    }
+
+    // Read hardware and apply press/release edges to chip8 keys[].
+    void poll(std::array<bool, 16>& keys) {
+        if (fd < 0) return;
+        uint8_t reg = MCP_GPIOA;
+        if (write(fd, &reg, 1) != 1) return;
+        uint8_t data[2] = {};
+        if (read(fd, data, 2) != 2) return;
+
+        uint16_t raw     = (static_cast<uint16_t>(data[1]) << 8) | data[0];
+        uint16_t current = (~raw) & 0xFFFF;  // active-low → active-high
+
+        uint16_t justPressed  = current  & ~prevState;
+        uint16_t justReleased = prevState & ~current;
+        prevState = current;
+
+        for (const auto& b : BTN_MAP) {
+            if (justPressed  & b.mask) keys[b.key] = true;
+            if (justReleased & b.mask) keys[b.key] = false;
+        }
+    }
+
+    bool available() const { return fd >= 0; }
+    ~MCPGamepad() { if (fd >= 0) close(fd); }
+
+private:
+    void writeReg(uint8_t reg, uint8_t val) {
+        uint8_t buf[2] = { reg, val };
+        write(fd, buf, 2);
+    }
+};
+
+// ─── Keyboard fallback map ────────────────────────────────────────────────────
+
+static const std::array<std::pair<SDL_Scancode, uint8_t>, 16> KEY_MAP = {{
+    { SDL_SCANCODE_X, 0x0 }, { SDL_SCANCODE_1, 0x1 },
+    { SDL_SCANCODE_2, 0x2 }, { SDL_SCANCODE_3, 0x3 },
+    { SDL_SCANCODE_Q, 0x4 }, { SDL_SCANCODE_W, 0x5 },
+    { SDL_SCANCODE_E, 0x6 }, { SDL_SCANCODE_A, 0x7 },
+    { SDL_SCANCODE_S, 0x8 }, { SDL_SCANCODE_D, 0x9 },
+    { SDL_SCANCODE_Z, 0xA }, { SDL_SCANCODE_C, 0xB },
+    { SDL_SCANCODE_4, 0xC }, { SDL_SCANCODE_R, 0xD },
+    { SDL_SCANCODE_F, 0xE }, { SDL_SCANCODE_V, 0xF },
 }};
 
 // ─── CHIP-8 ───────────────────────────────────────────────────────────────────
@@ -191,8 +286,11 @@ struct Chip8 {
         }
     }
 
-    void keyDown(uint8_t k){ keys[k]=true; if(waitKey){V[waitReg]=k;waitKey=false;} }
-    void keyUp  (uint8_t k){ keys[k]=false; }
+    void keyDown(uint8_t key) {
+        keys[key] = true;
+        if (waitKey) { V[waitReg] = key; waitKey = false; }
+    }
+    void keyUp(uint8_t key) { keys[key] = false; }
 };
 
 // ─── Audio ────────────────────────────────────────────────────────────────────
@@ -330,6 +428,8 @@ int main(int argc,char* argv[]){
     Chip8    chip8;
     Renderer ren;
     Buzzer   buzzer;
+    MCPGamepad gamepad;
+    
     try{
         chip8.loadROM(argv[1]);
         ren.init("CHIP-8");
@@ -338,6 +438,11 @@ int main(int argc,char* argv[]){
         std::cerr<<"Init error: "<<e.what()<<'\n';
         SDL_Quit(); return 1;
     }
+
+    if (gamepad.init())
+        std::cout << "MCP23017 gamepad connected\n";
+    else
+        std::cout << "MCP23017 not found — using keyboard\n";
 
     using clock=std::chrono::high_resolution_clock;
     using us=std::chrono::microseconds;
@@ -359,6 +464,10 @@ int main(int argc,char* argv[]){
                 }
             }
         }
+
+        // ── MCP23017 gamepad ──
+        gamepad.poll(chip8.keys);
+
         auto now=clock::now();
         if(now-lastCpu  >=cpuPeriod  ){chip8.step();      lastCpu  +=cpuPeriod;  }
         if(now-lastTimer>=timerPeriod){
