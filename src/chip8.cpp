@@ -43,6 +43,8 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
+#include <cerrno>
 #include <chrono>
 #include <cstdint>
 #include <cstring>
@@ -65,9 +67,13 @@ const uint8_t START_A_PIN  = 5;
 const uint8_t SELECT_A_PIN = 6;
 const uint8_t A_A_PIN      = 7;
 
-const uint8_t X_B_PIN     = 1;
-const uint8_t Y_B_PIN     = 2;
-const uint8_t B_B_PIN     = 3;
+const uint8_t X_B_PIN      = 1;
+const uint8_t Y_B_PIN      = 2;
+const uint8_t B_B_PIN      = 3;
+const uint8_t BUZZER_B_PIN = 6;           // PB6 — piezo buzzer output
+
+const uint8_t OLATB        = 0x15;        // MCP23017 output latch for port B
+static constexpr uint8_t PB6_MASK = (1 << BUZZER_B_PIN);
 
 const uint8_t IODIRA = 0x00;
 const uint8_t IODIRB = 0x01;
@@ -97,8 +103,6 @@ static constexpr uint8_t BG_R=  0, BG_G=  0, BG_B=  0;
 
 static constexpr int    CPU_HZ        = 700;
 static constexpr int    TIMER_HZ      = 60;
-static constexpr int    AUDIO_FREQ    = 44100;
-static constexpr int    AUDIO_SAMPLES = 512;
 static constexpr double BEEP_HZ       = 440.0;
 
 // ─── Memory ───────────────────────────────────────────────────────────────────
@@ -118,18 +122,6 @@ static constexpr std::array<uint8_t,80> FONT = {
     0xF0,0x80,0x80,0x80,0xF0, 0xE0,0x90,0x90,0x90,0xE0,
     0xF0,0x80,0xF0,0x80,0xF0, 0xF0,0x80,0xF0,0x80,0x80,
 };
-
-// Button bit-masks in 16-bit word (GPIOB<<8 | GPIOA), active-low inverted
-static constexpr uint16_t BTN_UP     = (1 << 0);  // GPIOA pin 1
-static constexpr uint16_t BTN_DOWN   = (1 << 1);  // GPIOA pin 2
-static constexpr uint16_t BTN_LEFT   = (1 << 2);  // GPIOA pin 3
-static constexpr uint16_t BTN_RIGHT  = (1 << 3);  // GPIOA pin 4
-static constexpr uint16_t BTN_START  = (1 << 4);  // GPIOA pin 5
-static constexpr uint16_t BTN_SELECT = (1 << 5);  // GPIOA pin 6
-static constexpr uint16_t BTN_A      = (1 << 6);  // GPIOA pin 7
-static constexpr uint16_t BTN_X      = (1 << 8);  // GPIOB pin 1
-static constexpr uint16_t BTN_Y      = (1 << 9);  // GPIOB pin 2
-static constexpr uint16_t BTN_B      = (1 << 10); // GPIOB pin 3
 
 // MCP23017
 int mcp_fd = -1;
@@ -162,12 +154,13 @@ bool initMCP() {
     }
 
     uint8_t cfg[2];
-    cfg[0] = IODIRA; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
-    cfg[0] = IODIRB; cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
-    cfg[0] = GPPUA;  cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
-    cfg[0] = GPPUB;  cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
+    cfg[0] = IODIRA; cfg[1] = 0xFF;              write(mcp_fd, cfg, 2); // port A all inputs
+    cfg[0] = IODIRB; cfg[1] = ~PB6_MASK;         write(mcp_fd, cfg, 2); // port B: PB6=output, rest=input
+    cfg[0] = GPPUA;  cfg[1] = 0xFF;              write(mcp_fd, cfg, 2); // port A pull-ups on
+    cfg[0] = GPPUB;  cfg[1] = ~PB6_MASK;         write(mcp_fd, cfg, 2); // port B pull-ups on inputs only
+    cfg[0] = OLATB;  cfg[1] = 0x00;              write(mcp_fd, cfg, 2); // PB6 low (silent)
 
-    debug("MCP23017 initialized (B button on B3)");
+    debug("MCP23017 initialized (buttons + PB6 buzzer output)");
     return true;
 }
 
@@ -348,30 +341,65 @@ struct Chip8 {
     }
 };
 
-// ─── Audio ────────────────────────────────────────────────────────────────────
+// ─── Buzzer via MCP23017 PB6 ─────────────────────────────────────────────────
+//
+// Drives PB6 as a square wave at BEEP_HZ from a background thread.
+// Uses the shared mcp_fd opened by initMCP() — no second I²C open().
+// initMCP() must be called before buzzer.init().
 
 struct Buzzer {
-    SDL_AudioDeviceID dev=0;
-    double phase=0.0;
-    bool   beeping=false;
-    static void cb(void* ud,uint8_t* stream,int len){
-        auto* b=static_cast<Buzzer*>(ud);
-        auto* out=reinterpret_cast<int16_t*>(stream);
-        for(int i=0,n=len/2;i<n;++i){
-            out[i]=b->beeping?(int16_t)(10000*(b->phase<0.5?1:-1)):0;
-            b->phase+=BEEP_HZ/AUDIO_FREQ;
-            if(b->phase>=1.0) b->phase-=1.0;
+    std::atomic<bool> beeping { false };
+    std::atomic<bool> running { false };
+    std::thread       thr;
+
+    // Write a single register via the shared mcp_fd
+    static bool mcp_write(uint8_t reg, uint8_t val) {
+        if (mcp_fd < 0) return false;
+        uint8_t buf[2] = { reg, val };
+        return ::write(mcp_fd, buf, 2) == 2;
+    }
+
+    // Background thread: toggles PB6 at BEEP_HZ while beeping==true
+    void squareWaveLoop() {
+        const auto half = std::chrono::microseconds(
+            static_cast<long>(1'000'000.0 / (2.0 * BEEP_HZ)));
+        uint8_t olatb = 0x00;
+
+        while (running.load(std::memory_order_relaxed)) {
+            if (beeping.load(std::memory_order_relaxed)) {
+                olatb ^= PB6_MASK;
+                mcp_write(OLATB, olatb);
+                std::this_thread::sleep_for(half);
+            } else {
+                if (olatb & PB6_MASK) {         // ensure pin goes low when silent
+                    olatb &= ~PB6_MASK;
+                    mcp_write(OLATB, olatb);
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            }
         }
+        // Drive low on exit
+        mcp_write(OLATB, 0x00);
     }
-    void init(){
-        SDL_AudioSpec want{},got{};
-        want.freq=AUDIO_FREQ;want.format=AUDIO_S16SYS;want.channels=1;
-        want.samples=AUDIO_SAMPLES;want.callback=cb;want.userdata=this;
-        dev=SDL_OpenAudioDevice(nullptr,0,&want,&got,0);
-        if(dev) SDL_PauseAudioDevice(dev,0);
+
+    void init() {
+        if (mcp_fd < 0) {
+            debug("[buzzer] mcp_fd not open — buzzer disabled");
+            return;
+        }
+        // PB6 direction and latch already configured by initMCP()
+        running = true;
+        thr = std::thread(&Buzzer::squareWaveLoop, this);
+        debug("[buzzer] MCP23017 PB6 square-wave buzzer started");
     }
-    void setBeep(bool on){ if(dev) beeping=on; }
-    ~Buzzer(){ if(dev) SDL_CloseAudioDevice(dev); }
+
+    void setBeep(bool on) { beeping.store(on, std::memory_order_relaxed); }
+
+    ~Buzzer() {
+        running = false;
+        if (thr.joinable()) thr.join();
+        // Leave PB6 low — mcp_write called from squareWaveLoop epilogue
+    }
 };
 
 // ─── Renderer ─────────────────────────────────────────────────────────────────
@@ -459,13 +487,13 @@ struct Renderer {
 
 static bool initSDL(){
     if(SDL_getenv("SDL_VIDEODRIVER"))
-        return SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO)==0;
+        return SDL_Init(SDL_INIT_VIDEO)==0;
     SDL_setenv("SDL_VIDEODRIVER","kmsdrm",1);
-    if(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO)==0) return true;
+    if(SDL_Init(SDL_INIT_VIDEO)==0) return true;
     std::cerr<<"[init] kmsdrm failed ("<<SDL_GetError()<<"), trying auto\n";
     SDL_setenv("SDL_VIDEODRIVER","",1);
     SDL_Quit();
-    return SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO)==0;
+    return SDL_Init(SDL_INIT_VIDEO)==0;
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -503,16 +531,17 @@ int main(int argc,char* argv[]){
     try{
         chip8.loadROM(gameRom);
         ren.init("CHIP-8");
-        buzzer.init();
     }catch(const std::exception& e){
         std::cerr<<"Init error: "<<e.what()<<'\n';
         SDL_Quit(); return 1;
     }
 
-    if(initMCP())
-        std::cout << "MCP23017 gamepad connected\n";
-    else
-        std::cout << "MCP23017 not found — using keyboard\n";
+    if(initMCP()) {
+        std::cout << "MCP23017 gamepad + buzzer connected\n";
+        buzzer.init();   // must come after initMCP() — shares mcp_fd
+    } else {
+        std::cout << "MCP23017 not found — using keyboard, buzzer disabled\n";
+    }
 
     using clock=std::chrono::high_resolution_clock;
     using us=std::chrono::microseconds;
