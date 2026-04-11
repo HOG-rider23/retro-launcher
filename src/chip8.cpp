@@ -471,10 +471,25 @@ static bool initSDL(){
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 int main(int argc,char* argv[]){
-    if(argc!=2){
-        std::cerr<<"Usage: "<<argv[0]<<" <rom.ch8>\n";
+    //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    DEBUG_ENABLED = true;
+    //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    for (int i = 1; i < argc; ++i) {
+        if (std::string(argv[i]) == "-d" || std::string(argv[i]) == "--debug") {
+            DEBUG_ENABLED = true;
+            debug("=== CHIP-8 Emulator Starting (DEBUG MODE) ===");
+            break;
+        }
+    }
+
+    debug("Loading ROM: " + std::string(argv[1]));
+    
+    if (argc < 2) {
+        std::cout << "Usage: " << argv[0] << " rom.ch8 [-d|--debug]\n";
         return 1;
     }
+    
     if(!initSDL()){
         std::cerr<<"SDL_Init failed: "<<SDL_GetError()<<'\n';
         return 1;
