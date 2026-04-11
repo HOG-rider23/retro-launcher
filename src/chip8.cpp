@@ -356,7 +356,7 @@ int main(int argc, char** argv) {
     SDL_AudioDeviceID dev = SDL_OpenAudioDevice(nullptr, 0, &want, nullptr, 0);
     SDL_PauseAudioDevice(dev, 0);
 
-    const int CPU_FREQ        = 600;   // cycles per second (adjust per game)
+    const int CPU_FREQ        = 1200;   // cycles per second (adjust per game)
     const int FRAME_RATE      = 60;
     const int CYCLES_PER_FRAME = CPU_FREQ / FRAME_RATE;
 
