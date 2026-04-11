@@ -530,7 +530,7 @@ int main(int argc,char* argv[]){
         auto now=clock::now();
         chip8.keypadReset();  // Reset all keys before setting the current state
         
-        if (pressed == 33) {running=false;break;}  // START
+        if (pressed == 16416) {running=false;break;}  // START
         if (pressed > 0) chip8.gameButtonAjustment(pressed, gameName);
 /*        if ()
         if (pressed == 3) chip8.handleKey(0x1, true);  // UP    → 0x1
