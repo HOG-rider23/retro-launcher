@@ -267,6 +267,14 @@ public:
                     case 0x65: for (int i = 0; i <= x; ++i) V[i] = memory[I + i]; break;
                 }
                 break;
+            case 0x75:  // Fx75 - Save V0..Vx to memory[I..]
+                for (int i = 0; i <= x; ++i)
+                    memory[I + i] = V[i];
+                break;
+            case 0x85:  // Fx85 - Load V0..Vx from memory[I..]
+                for (int i = 0; i <= x; ++i)
+                    V[i] = memory[I + i];
+                break;
         }
     }
 
