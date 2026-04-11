@@ -103,7 +103,7 @@ bool initMCP() {
     cfg[0] = GPPUA;  cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
     cfg[0] = GPPUB;  cfg[1] = 0xFF; write(mcp_fd, cfg, 2);
 
-    debug("MCP23017 initialized (B button on B3)");
+    debug("MCP23017 initialized");
     return true;
 }
 
@@ -124,26 +124,24 @@ uint16_t readMCPButtons() {
 
 class Chip8 {
 public:
-    uint8_t memory[4096]{};
-    uint8_t V[16]{};
+    uint8_t  memory[4096]{};
+    uint8_t  V[16]{};
     uint16_t I = 0;
     uint16_t pc = 0x200;
 
     uint16_t stack[16]{};
-    uint8_t sp = 0;
+    uint8_t  sp = 0;
 
     uint8_t delay_timer = 0;
     uint8_t sound_timer = 0;
 
-    bool keypad[16]{};
-    bool display_changed = true;
+    
+    uint32_t display[CHIP8_W * CHIP8_H]{};
 
-    // SuperCHIP support
-    bool highRes = false;
-    unsigned int currentW = 64;
-    unsigned int currentH = 32;
-    unsigned int currentScale = 10;
-    bool display[128 * 64]{};
+    
+    bool drawFlag = true;
+
+    bool keypad[16]{};
 
     std::mt19937 rng{std::random_device{}()};
 
@@ -159,39 +157,6 @@ public:
             0xF0,0x80,0xF0,0x80,0xF0, 0xF0,0x80,0xF0,0x80,0x80
         };
         std::memcpy(memory + 0x50, font, 80);
-
-        // === NEW: Large 8×10 SCHIP font (required by David Winter's ROM) ===
-        const uint8_t largeFont[16][10] = {
-            {0xF0,0x90,0x90,0x90,0xF0,0x00,0x00,0x00,0x00,0x00}, // 0
-            {0x20,0x60,0x20,0x20,0x70,0x00,0x00,0x00,0x00,0x00}, // 1
-            {0xF0,0x10,0xF0,0x80,0xF0,0x00,0x00,0x00,0x00,0x00}, // 2
-            {0xF0,0x10,0xF0,0x10,0xF0,0x00,0x00,0x00,0x00,0x00}, // 3
-            {0x90,0x90,0xF0,0x10,0x10,0x00,0x00,0x00,0x00,0x00}, // 4
-            {0xF0,0x80,0xF0,0x10,0xF0,0x00,0x00,0x00,0x00,0x00}, // 5
-            {0xF0,0x80,0xF0,0x90,0xF0,0x00,0x00,0x00,0x00,0x00}, // 6
-            {0xF0,0x10,0x10,0x10,0x10,0x00,0x00,0x00,0x00,0x00}, // 7
-            {0xF0,0x90,0xF0,0x90,0xF0,0x00,0x00,0x00,0x00,0x00}, // 8
-            {0xF0,0x90,0xF0,0x10,0xF0,0x00,0x00,0x00,0x00,0x00}, // 9
-            {0xF0,0x90,0xF0,0x90,0x90,0x00,0x00,0x00,0x00,0x00}, // A
-            {0xE0,0x90,0xE0,0x90,0xE0,0x00,0x00,0x00,0x00,0x00}, // B
-            {0xF0,0x80,0x80,0x80,0xF0,0x00,0x00,0x00,0x00,0x00}, // C
-            {0xE0,0x90,0x90,0x90,0xE0,0x00,0x00,0x00,0x00,0x00}, // D
-            {0xF0,0x80,0xF0,0x80,0xF0,0x00,0x00,0x00,0x00,0x00}, // E
-            {0xF0,0x80,0xF0,0x80,0x80,0x00,0x00,0x00,0x00,0x00}  // F
-        };
-
-        for (int i = 0; i < 16; ++i) {
-            for (int j = 0; j < 10; ++j) {
-                memory[0x100 + i * 10 + j] = largeFont[i][j];
-            }
-        }
-
-        // SuperCHIP resolution init
-        highRes = false;
-        currentW = 64;
-        currentH = 32;
-        currentScale = 10;
-        std::memset(display, 0, sizeof(display));
     }
 
     bool loadROM(const std::string& path) {
@@ -208,13 +173,7 @@ public:
     }
 
     void emulateCycle() {
-        debug("--- emulateCycle() start --- pc = 0x" + std::to_string(pc));
-
-        if (pc >= 4094) {
-            debug("PC overflow - resetting to 0x200");
-            pc = 0x200;
-            return;
-        }
+        if (pc >= 4094) { pc = 0x200; return; }
 
         uint16_t op  = memory[pc] << 8 | memory[pc + 1];
         uint8_t  x   = (op & 0x0F00) >> 8;
@@ -223,78 +182,26 @@ public:
         uint8_t  nn  = op & 0x00FF;
         uint16_t nnn = op & 0x0FFF;
 
-        char buf[64];
-        snprintf(buf, sizeof(buf), "Fetched opcode: 0x%04X at pc=0x%04X", op, pc - 2);  // pc already +=2
-        debug(buf);
-
         pc += 2;
 
         switch (op & 0xF000) {
             case 0x0000:
-                debug("0x0000 group");
-                if (nn == 0xE0) {
-                    debug("00E0 - Clear screen");
-                    std::memset(display, 0, sizeof(display));
-                } else if (nn == 0xEE) {
-                    debug("00EE - Return from subroutine");
-                    if (sp > 0) pc = stack[--sp];
-                } else if (nn == 0xFE) {               // NEW: SuperCHIP low res
-                    debug("00FE - Set low resolution (64x32)");
-                    highRes = false;
-                    currentW = 64;
-                    currentH = 32;
-                    currentScale = 10;
-                    std::memset(display, 0, sizeof(display));
-                } else if (nn == 0xFF) {               // NEW: SuperCHIP high res
-                    debug("00FF - Set high resolution (128x64)");
-                    highRes = true;
-                    currentW = 128;
-                    currentH = 64;
-                    currentScale = 5;
-                    std::memset(display, 0, sizeof(display));
-                }
+                if (nn == 0xE0) { std::memset(display, 0, sizeof(display)); drawFlag = true; }
+                else if (nn == 0xEE) { if (sp > 0) pc = stack[--sp]; }
                 break;
-
-            case 0x1000:
-                debug("1nnn - Jump to 0x" + std::to_string(nnn));
-                pc = nnn;
-                break;
-
+            case 0x1000: pc = nnn; break;
             case 0x2000:
-                debug("2nnn - Call subroutine at 0x" + std::to_string(nnn));
                 if (sp < 16) stack[sp++] = pc;
                 pc = nnn;
                 break;
-
-            case 0x3000:
-                debug("3xnn - Skip if V[" + std::to_string(x) + "] == 0x" + std::to_string(nn));
-                if (V[x] == nn) pc += 2;
-                break;
-
-            case 0x4000:
-                debug("4xnn - Skip if V[" + std::to_string(x) + "] != 0x" + std::to_string(nn));
-                if (V[x] != nn) pc += 2;
-                break;
-
-            case 0x5000:
-                debug("5xy0 - Skip if V[" + std::to_string(x) + "] == V[" + std::to_string(y) + "]");
-                if (V[x] == V[y]) pc += 2;
-                break;
-
-            case 0x6000:
-                debug("6xnn - V[" + std::to_string(x) + "] = 0x" + std::to_string(nn));
-                V[x] = nn;
-                break;
-
-            case 0x7000:
-                debug("7xnn - V[" + std::to_string(x) + "] += 0x" + std::to_string(nn));
-                V[x] += nn;
-                break;
-
+            case 0x3000: if (V[x] == nn) pc += 2; break;
+            case 0x4000: if (V[x] != nn) pc += 2; break;
+            case 0x5000: if (V[x] == V[y]) pc += 2; break;
+            case 0x6000: V[x] = nn; break;
+            case 0x7000: V[x] += nn; break;
             case 0x8000:
-                debug("8xyN group (n=" + std::to_string(n) + ")");
                 switch (n) {
-                    case 0x0: V[x] = V[y]; break;
+                    case 0x0: V[x]  = V[y]; break;
                     case 0x1: V[x] |= V[y]; V[0xF] = 0; break;
                     case 0x2: V[x] &= V[y]; V[0xF] = 0; break;
                     case 0x3: V[x] ^= V[y]; V[0xF] = 0; break;
@@ -305,91 +212,52 @@ public:
                     case 0xE: { uint8_t f=(V[x]&0x80)>>7; V[x]<<=1; V[0xF]=f; break; }
                 }
                 break;
-
-            case 0x9000:
-                debug("9xy0 - Skip if V[" + std::to_string(x) + "] != V[" + std::to_string(y) + "]");
-                if (V[x] != V[y]) pc += 2;
-                break;
-
-            case 0xA000:
-                debug("Annn - Set I = 0x" + std::to_string(nnn));
-                I = nnn;
-                break;
-
-            case 0xB000:
-                debug("Bnnn - Jump to 0x" + std::to_string(nnn) + " + V[0]");
-                pc = nnn + V[0];
-                break;
-
-            case 0xC000:
-                debug("Cxnn - V[" + std::to_string(x) + "] = random & 0x" + std::to_string(nn));
-                V[x] = (rng() & 0xFF) & nn;
-                break;
-
-            case 0xD000:
-                debug("Dxyn - Draw sprite at Vx=" + std::to_string(V[x]) + ", Vy=" + std::to_string(V[y]) + ", height=" + std::to_string(n));
-                {
-                    uint8_t vx = V[x] % currentW;
-                    uint8_t vy = V[y] % currentH;
-                    V[0xF] = 0;
-
-                    uint8_t spriteWidth = highRes && (n == 0) ? 16 : 8;   // SCHIP quirk
-                    uint8_t spriteHeight = n == 0 && highRes ? 16 : n;
-
-                    for (uint8_t row = 0; row < spriteHeight; ++row) {
-                        if (vy + row >= currentH) break;
-                        uint8_t sprite = memory[I + row];
-                        for (uint8_t col = 0; col < spriteWidth; ++col) {
-                            if (vx + col >= currentW) break;
-                            if (sprite & (0x80 >> (col % 8))) {   // handles 16-wide sprites
-                                size_t idx = (vy + row) * 128 + (vx + col);  // always 128-wide buffer
-                                if (display[idx]) V[0xF] = 1;
-                                display[idx] ^= true;
+            case 0x9000: if (V[x] != V[y]) pc += 2; break;
+            case 0xA000: I = nnn; break;
+            case 0xB000: pc = nnn + V[0]; break;
+            case 0xC000: V[x] = (rng() & 0xFF) & nn; break;
+            case 0xD000: {
+            
+                uint8_t vx = V[x] % CHIP8_W;
+                uint8_t vy = V[y] % CHIP8_H;
+                V[0xF] = 0;
+                for (uint8_t row = 0; row < n; ++row) {
+                    uint8_t sprite = memory[I + row];
+                    for (uint8_t col = 0; col < 8; ++col) {
+                        if (sprite & (0x80 >> col)) {
+                           
+                            uint8_t px = (vx + col) % CHIP8_W;
+                            uint8_t py = (vy + row) % CHIP8_H;
+                            uint32_t* screenPixel = &display[py * CHIP8_W + px];
+                            if (*screenPixel == 0xFFFFFFFF) {
+                                V[0xF] = 1;
                             }
-                            if (col == 7) sprite = memory[I + row + 1];  // second byte for 16-wide
+                            *screenPixel ^= 0xFFFFFFFF;
                         }
                     }
                 }
+                drawFlag = true;
                 break;
-
+            }
             case 0xE000:
-                debug("ExNN - Key test for V[" + std::to_string(x) + "]");
-                debug("   Key test: V[" + std::to_string(x) + "] = " + std::to_string(V[x]) + 
-                    " → checking keypad[" + std::to_string(V[x] & 0xF) + "] = " + 
-                    std::to_string(keypad[V[x] & 0xF]));
-                if (nn == 0x9E &&  keypad[V[x] & 0xF]) pc += 2;
+                if      (nn == 0x9E &&  keypad[V[x] & 0xF]) pc += 2;
                 else if (nn == 0xA1 && !keypad[V[x] & 0xF]) pc += 2;
                 break;
-
             case 0xF000:
-                debug("FxNN - x=" + std::to_string(x) + ", nn=0x" + std::to_string(nn));
                 switch (nn) {
                     case 0x07: V[x] = delay_timer; break;
-                    case 0x0A: {   // Fx0A - Wait for any key
-                        debug("Fx0A - Waiting for any key press...");
-                        bool any_key_pressed = false;
+                    case 0x0A: {
+                        bool pressed = false;
                         for (int k = 0; k < 16; ++k) {
-                            if (keypad[k]) {
-                                V[x] = k;
-                                any_key_pressed = true;
-                                debug("Fx0A - Key pressed: " + std::to_string(k));
-                                break;
-                            }
+                            if (keypad[k]) { V[x] = k; pressed = true; break; }
                         }
-                        if (!any_key_pressed) {
-                            debug("Fx0A - No key yet - re-executing instruction");
-                            pc -= 2;
-                        }
+                        if (!pressed) pc -= 2;
                         break;
                     }
                     case 0x15: delay_timer = V[x]; break;
                     case 0x18: sound_timer = V[x]; break;
                     case 0x1E: I += V[x]; break;
                     case 0x29: I = 0x50 + (V[x] & 0xF) * 5; break;
-                    case 0x30:  // SCHIP Fx30 - large 10-byte font sprite for digit in Vx
-                        I = 0x100 + (V[x] & 0xF) * 10;
-                        debug(">>> Fx30 EXECUTED! I=0x" + std::to_string(I) + " (digit " + std::to_string(V[x]&0xF) + ")");
-                        break;
                     case 0x33:
                         memory[I]   = V[x] / 100;
                         memory[I+1] = (V[x] / 10) % 10;
@@ -400,33 +268,16 @@ public:
                 }
                 break;
         }
+    }
 
-        // <<< IMPORTANT: Update timers EVERY cycle for tight loops like Space Invaders >>>
-        updateTimers();
-
-        debug("--- emulateCycle() end --- new pc = 0x" + std::to_string(pc));
-    }   
-
+    
     void updateTimers() {
         if (delay_timer > 0) delay_timer--;
         if (sound_timer > 0) sound_timer--;
     }
 
-    void keypadReset()
-    {
-        keypad[0x1] = false;  // UP
-        keypad[0x4] = false;  // DOWN
-        keypad[0x6] = false;  // RIGHT
-        keypad[0x0] = false;  // A
-        keypad[0x9] = false;  // B
-        keypad[0x7] = false;  // START
-        keypad[0xC] = false;  // SELECT
-    }
-
-    void handleKey(uint8_t key, bool pressed)
-    {    
-        if (key < 16)
-        {
+    void handleKey(uint8_t key, bool pressed) {
+        if (key < 16) {
             keypad[key] = pressed;
             debug("handleKey: keypad[" + std::to_string(key) + "] = " + std::to_string(pressed));
         }
@@ -434,7 +285,6 @@ public:
 };
 
 int main(int argc, char** argv) {
-    // Parse command-line arguments for debug flag
     for (int i = 1; i < argc; ++i) {
         if (std::string(argv[i]) == "-d" || std::string(argv[i]) == "--debug") {
             DEBUG_ENABLED = true;
@@ -443,7 +293,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    if (argc < 3) {
+    if (argc < 2) {
         std::cout << "Usage: " << argv[0] << " rom.ch8 [-d|--debug]\n";
         return 1;
     }
@@ -460,110 +310,141 @@ int main(int argc, char** argv) {
 
     debug("Initializing SDL...");
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
-    SDL_Window* window = SDL_CreateWindow("CHIP-8", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_W, SCREEN_H, SDL_WINDOW_SHOWN);
-    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
+    SDL_Window* window = SDL_CreateWindow(
+        "CHIP-8",
+        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+        SCREEN_W, SCREEN_H,
+        SDL_WINDOW_SHOWN
+    );
+
+    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+
+   
+    SDL_Texture* texture = SDL_CreateTexture(
+        renderer,
+        SDL_PIXELFORMAT_RGBA8888,
+        SDL_TEXTUREACCESS_STREAMING,
+        CHIP8_W, CHIP8_H
+    );
+
+    // Destination rect: centred in the window, scaled up
+    SDL_Rect destRect = {
+        (int)OFFSET_X,
+        (int)OFFSET_Y,
+        (int)(CHIP8_W * SCALE),
+        (int)(CHIP8_H * SCALE)
+    };
+
     debug("SDL initialized");
 
-    // === MCP & AUDIO INIT ===
     debug("Initializing MCP23017...");
     if (initMCP()) {
         debug("MCP23017 initialized successfully");
     } else {
         debug("Warning: MCP23017 initialization failed");
     }
-    
+
     debug("Initializing audio...");
     AudioState audio;
     SDL_AudioSpec want{};
-    want.freq = SAMPLE_RATE;
-    want.format = AUDIO_S16SYS;
+    want.freq     = SAMPLE_RATE;
+    want.format   = AUDIO_S16SYS;
     want.channels = 1;
-    want.samples = 512;
+    want.samples  = 512;
     want.callback = audioCallback;
     want.userdata = &audio;
     SDL_AudioDeviceID dev = SDL_OpenAudioDevice(nullptr, 0, &want, nullptr, 0);
     SDL_PauseAudioDevice(dev, 0);
 
-    bool quit = false;
-    const int CPU_FREQ = 2000;
-    const int FRAME_RATE = 60;
+    const int CPU_FREQ        = 600;   // cycles per second (adjust per game)
+    const int FRAME_RATE      = 60;
     const int CYCLES_PER_FRAME = CPU_FREQ / FRAME_RATE;
-    
-    debug("Entering main emulation loop. CPU freq: " + std::to_string(CPU_FREQ) + 
+
+   
+    auto lastFrameTime = std::chrono::high_resolution_clock::now();
+
+   
+    uint16_t prev_pressed = 0;
+
+    bool quit = false;
+
+    debug("Entering main emulation loop. CPU freq: " + std::to_string(CPU_FREQ) +
           " Hz, Frame rate: " + std::to_string(FRAME_RATE) + " FPS");
 
     while (!quit) {
+        // --- SDL events (window close, ESC) ---
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_QUIT) quit = true;
+            if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) quit = true;
         }
 
-        // === READ MCP BUTTONS WITH EDGE DETECTION ===
-        static uint16_t last_pressed = 0xFFFF;
-        static Uint32 last_press_time = 0;
-
+        // --- MCP button reading with edge detection ---
         uint16_t pressed = readMCPButtons();
 
-        Uint32 now = SDL_GetTicks();
-        if (now - last_press_time > 80) {   // 80ms debounce
-            chip8.keypadReset();  // Reset all keys before setting the current state
-            if (pressed == 3) chip8.handleKey(0x1, true);  // UP    → 0x1
-            if (pressed == 5) chip8.handleKey(0x4, true);  // DOWN  → 0x4
-            if (pressed == 9) chip8.handleKey(0x4, true);  // LEFT  → 0x4
-            if (pressed == 17) chip8.handleKey(0x6, true);  // RIGHT → 0x6
-            if (pressed == 129) chip8.handleKey(0x0, true);  // A
-            if (pressed == 2049) chip8.handleKey(0x9, true);  // B
-            if (pressed == 33) chip8.handleKey(0x7, true);  // START
-            if (pressed == 65) chip8.handleKey(0xC, true);  // SELECT
-            last_pressed = pressed;
-            last_press_time = now;
-            debug("MCP Buttons state: " + std::to_string(pressed) + " last press time: " + std::to_string(last_press_time));
-        }
+        uint16_t just_pressed  = pressed  & ~prev_pressed;   // newly pressed this frame
+        uint16_t just_released = prev_pressed & ~pressed;     // newly released this frame
 
-        // Debug keypad state
-        debug("Keypad stanje:");
-        debug("------------------------------------------");
-        debug("UP     keypad[0x1]: " + std::to_string(chip8.keypad[0x1]));
-        debug("DOWN   keypad[0x4]: " + std::to_string(chip8.keypad[0x4]));
-        debug("RIGHT  keypad[0x6]: " + std::to_string(chip8.keypad[0x6]));
-        debug("A      keypad[0x0]: " + std::to_string(chip8.keypad[0x0]));
-        debug("B      keypad[0x9]: " + std::to_string(chip8.keypad[0x9]));
-        debug("START  keypad[0x7]: " + std::to_string(chip8.keypad[0x7]));
-        debug("SELECT keypad[0xC]: " + std::to_string(chip8.keypad[0xC]));
-        debug("------------------------------------------");
-        debug("MCP Buttons state: " + std::to_string(pressed));
+        auto applyEdge = [&](uint16_t mask, uint8_t chip8key, bool state) {
+            if (mask) chip8.handleKey(chip8key, state);
+        };
 
-        for (int i = 0; i < CYCLES_PER_FRAME; i++) chip8.emulateCycle();
-        // chip8.updateTimers();
+        // Button mask → CHIP-8 key mappings (same as before)
+        // Press events
+        if (just_pressed  & 3)    chip8.handleKey(0x1, true);   // UP
+        if (just_pressed  & 5)    chip8.handleKey(0x4, true);   // DOWN
+        if (just_pressed  & 9)    chip8.handleKey(0x4, true);   // LEFT → DOWN
+        if (just_pressed  & 17)   chip8.handleKey(0x6, true);   // RIGHT
+        if (just_pressed  & 129)  chip8.handleKey(0x0, true);   // A
+        if (just_pressed  & 2049) chip8.handleKey(0x9, true);   // B
+        if (just_pressed  & 33)   chip8.handleKey(0x7, true);   // START
+        if (just_pressed  & 65)   chip8.handleKey(0xC, true);   // SELECT
 
-        // Render - supports both 64x32 and 128x64 (SuperCHIP)
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-        SDL_RenderClear(renderer);
+        // Release events
+        if (just_released & 3)    chip8.handleKey(0x1, false);  // UP
+        if (just_released & 5)    chip8.handleKey(0x4, false);  // DOWN
+        if (just_released & 9)    chip8.handleKey(0x4, false);  // LEFT
+        if (just_released & 17)   chip8.handleKey(0x6, false);  // RIGHT
+        if (just_released & 129)  chip8.handleKey(0x0, false);  // A
+        if (just_released & 2049) chip8.handleKey(0x9, false);  // B
+        if (just_released & 33)   chip8.handleKey(0x7, false);  // START
+        if (just_released & 65)   chip8.handleKey(0xC, false);  // SELECT
 
-        unsigned int drawW = chip8.highRes ? 128 : 64;
-        unsigned int drawH = chip8.highRes ? 64 : 32;
-        unsigned int drawScale = chip8.highRes ? 5 : 10;
-        unsigned int offsetY = (SCREEN_H - drawH * drawScale) / 2;
+        prev_pressed = pressed;
 
-        SDL_Rect pixel{0, 0, (int)drawScale, (int)drawScale};
-        for (unsigned int y = 0; y < drawH; ++y) {
-            for (unsigned int x = 0; x < drawW; ++x) {
-                size_t idx = y * 128 + x;               // always 128-wide buffer
-                if (chip8.display[idx]) {
-                    pixel.x = OFFSET_X + x * drawScale;
-                    pixel.y = offsetY + y * drawScale;
-                    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-                    SDL_RenderFillRect(renderer, &pixel);
-                }
+        debug("MCP raw state: " + std::to_string(pressed));
+
+        // --- Frame timing ---
+        auto now = std::chrono::high_resolution_clock::now();
+        float dt = std::chrono::duration<float, std::chrono::milliseconds::period>(now - lastFrameTime).count();
+
+        if (dt >= 1000.0f / FRAME_RATE) {
+            lastFrameTime = now;
+
+            // --- CPU cycles ---
+            for (int i = 0; i < CYCLES_PER_FRAME; i++) {
+                chip8.emulateCycle();
             }
-        }
-        SDL_RenderPresent(renderer);
 
-        audio.playing = chip8.sound_timer > 0;
-        SDL_Delay(1000 / FRAME_RATE);
+           
+            chip8.updateTimers();
+
+           
+            if (chip8.drawFlag) {
+                chip8.drawFlag = false;
+                SDL_UpdateTexture(texture, nullptr, chip8.display, CHIP8_W * sizeof(uint32_t));
+                SDL_RenderClear(renderer);
+                SDL_RenderCopy(renderer, texture, nullptr, &destRect);
+                SDL_RenderPresent(renderer);
+            }
+
+            // --- Audio ---
+            audio.playing = chip8.sound_timer > 0;
+        }
     }
 
     debug("=== CHIP-8 Emulator Shutting Down ===");
+    SDL_DestroyTexture(texture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_CloseAudioDevice(dev);
