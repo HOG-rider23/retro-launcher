@@ -523,6 +523,10 @@ int main(int argc,char* argv[]){
         return 1;
     }
 
+    // right after initSDL
+    SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1");
+    SDL_ShowCursor(SDL_DISABLE);
+
     Chip8    chip8;
     Renderer ren;
     Buzzer   buzzer;
