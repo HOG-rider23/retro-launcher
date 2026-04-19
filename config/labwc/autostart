@@ -1,0 +1,2 @@
+# Hide mouse cursor on startup
+wtype -M alt -M logo -P h

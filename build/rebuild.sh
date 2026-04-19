@@ -64,6 +64,8 @@ update_config_file "$PROJECT_DIR/config/etc/systemd/system/retro-launcher.servic
 update_config_file "$PROJECT_DIR/config/boot/firmware/config.txt" "/boot/firmware/config.txt"
 update_config_file "$PROJECT_DIR/config/boot/firmware/cmdline.txt" "/boot/firmware/cmdline.txt"
 update_config_file "$PROJECT_DIR/config/etc/udev/rules.d/99-waveshare-touch.rules" "/etc/udev/rules.d/99-waveshare-touch.rules"
+update_config_file "$PROJECT_DIR/config/labwc/rc.xml" "$HOME/.config/labwc/rc.xml"
+update_config_file "$PROJECT_DIR/config/labwc/autostart" "$HOME/.config/labwc/autostart"
 
 rm -rf "$INSTALL_DIRECTORY"/*
 
