@@ -61,7 +61,7 @@ git pull --ff-only origin "$BRANCH"
 # mouse configuraction
 sudo mkdir -p /etc/xdg/labwc
 sudo mkdir -p /usr/share/icons
-cp -Rp "$PROJECT_DIR/config/usr/share/icons/xcursor-transparent" /usr/share/icons/
+sudo cp -Rp "$PROJECT_DIR/config/usr/share/icons/xcursor-transparent" /usr/share/icons/
 
 # 3. Update config files
 echo "→ Updating configuration files..."
