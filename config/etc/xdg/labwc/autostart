@@ -1,0 +1,3 @@
+#!/bin/sh
+# Hide mouse cursor immediately at startup (labwc kiosk)
+wtype -M alt -M logo -P h

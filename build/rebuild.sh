@@ -58,14 +58,17 @@ echo "→ Switching to branch $BRANCH and pulling latest changes..."
 git checkout "$BRANCH"
 git pull --ff-only origin "$BRANCH"
 
+# mouse configuraction
+sudo mkdir -p /etc/xdg/labwc
+
 # 3. Update config files
 echo "→ Updating configuration files..."
 update_config_file "$PROJECT_DIR/config/etc/systemd/system/retro-launcher.service" "/etc/systemd/system/retro-launcher.service"
 update_config_file "$PROJECT_DIR/config/boot/firmware/config.txt" "/boot/firmware/config.txt"
 update_config_file "$PROJECT_DIR/config/boot/firmware/cmdline.txt" "/boot/firmware/cmdline.txt"
 update_config_file "$PROJECT_DIR/config/etc/udev/rules.d/99-waveshare-touch.rules" "/etc/udev/rules.d/99-waveshare-touch.rules"
-update_config_file "$PROJECT_DIR/config/labwc/rc.xml" "$HOME/.config/labwc/rc.xml"
-update_config_file "$PROJECT_DIR/config/labwc/autostart" "$HOME/.config/labwc/autostart"
+update_config_file "$PROJECT_DIR/config/labwc/rc.xml" "/etc/xdg/labwc/rc.xml"
+update_config_file "$PROJECT_DIR/config/labwc/autostart" "/etc/xdg/labwc/autostart"
 
 rm -rf "$INSTALL_DIRECTORY"/*
 
@@ -90,6 +93,9 @@ sudo mkdir -p "/var/log/retro-launcher"
 sudo chmod 777 "/var/log/retro-launcher"
 sudo touch "/var/log/retro-launcher/retro-launcher.log"
 sudo chmod 777 "/var/log/retro-launcher/retro-launcher.log"
+
+# mouse configuraction
+sudo chmod +x /etc/xdg/labwc/autostart
 
 echo ""
 echo "✅ Build completed successfully!"
