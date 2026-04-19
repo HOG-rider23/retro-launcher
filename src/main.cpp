@@ -402,7 +402,7 @@ void gracefulShutdown()
     debug("SDL resources cleaned up. Initiating system shutdown...");
 
     // Graceful system shutdown (works with the current service user)
-    //system("sudo shutdown -h now");
+    system("sudo shutdown -h now");
 
     // Fallback in case sudo fails (rare)
     debug("Shutdown command issued. Exiting now.");
