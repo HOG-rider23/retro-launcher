@@ -216,6 +216,9 @@ bool initSDL() {
         return false;
     }
 
+    // hides cursor permanently
+    SDL_ShowCursor(SDL_DISABLE);
+
     SDL_GetWindowSize(window, &SCREEN_WIDTH, &SCREEN_HEIGHT);
     debug("Window size: " + std::to_string(SCREEN_WIDTH) + "x" + std::to_string(SCREEN_HEIGHT));
 
@@ -355,6 +358,10 @@ void launchROM(const RomEntry& entry) {
         std::cerr << "Failed to reinit SDL" << std::endl; 
         exit(1); 
     }
+
+    // hides cursor permanently
+    SDL_ShowCursor(SDL_DISABLE);
+
     cacheStaticTextures();
     updateCountTexture();
     cacheTextures();

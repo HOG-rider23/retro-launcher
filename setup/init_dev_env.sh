@@ -110,8 +110,9 @@ install_if_missing "libsdl2-mixer-dev"
 install_if_missing "python3-smbus2"
 install_if_missing "i2c-tools"
 
-# wtype for disable mouse cursor in SDL2 apps (optional but recommended for a cleaner experience)
-install_if_missing "wtype"
+# labwc and wtype for disable mouse cursor in SDL2 apps (optional but recommended for a cleaner experience)
+#install_if_missing "labwc"
+#install_if_missing "wtype"
 
 
 echo "Checking i2c-dev kernel module..."

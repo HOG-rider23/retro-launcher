@@ -59,9 +59,9 @@ git checkout "$BRANCH"
 git pull --ff-only origin "$BRANCH"
 
 # mouse configuraction
-sudo mkdir -p /etc/xdg/labwc
-sudo mkdir -p /usr/share/icons
-sudo cp -Rp "$PROJECT_DIR/config/usr/share/icons/xcursor-transparent" /usr/share/icons/
+# sudo mkdir -p /etc/xdg/labwc
+# sudo mkdir -p /usr/share/icons
+# sudo cp -Rp "$PROJECT_DIR/config/usr/share/icons/xcursor-transparent" /usr/share/icons/
 
 # 3. Update config files
 echo "→ Updating configuration files..."
@@ -69,9 +69,9 @@ update_config_file "$PROJECT_DIR/config/etc/systemd/system/retro-launcher.servic
 update_config_file "$PROJECT_DIR/config/boot/firmware/config.txt" "/boot/firmware/config.txt"
 update_config_file "$PROJECT_DIR/config/boot/firmware/cmdline.txt" "/boot/firmware/cmdline.txt"
 update_config_file "$PROJECT_DIR/config/etc/udev/rules.d/99-waveshare-touch.rules" "/etc/udev/rules.d/99-waveshare-touch.rules"
-update_config_file "$PROJECT_DIR/config/etc/xdg/labwc/rc.xml" "/etc/xdg/labwc/rc.xml"
-update_config_file "$PROJECT_DIR/config/etc/xdg/labwc/autostart" "/etc/xdg/labwc/autostart"
-update_config_file "$PROJECT_DIR/config/etc/xdg/labwc/environment" "/etc/xdg/labwc/environment"
+# update_config_file "$PROJECT_DIR/config/etc/xdg/labwc/rc.xml" "/etc/xdg/labwc/rc.xml"
+# update_config_file "$PROJECT_DIR/config/etc/xdg/labwc/autostart" "/etc/xdg/labwc/autostart"
+# update_config_file "$PROJECT_DIR/config/etc/xdg/labwc/environment" "/etc/xdg/labwc/environment"
 
 rm -rf "$INSTALL_DIRECTORY"/*
 
@@ -98,7 +98,8 @@ sudo touch "/var/log/retro-launcher/retro-launcher.log"
 sudo chmod 777 "/var/log/retro-launcher/retro-launcher.log"
 
 # mouse configuraction
-sudo chmod +x /etc/xdg/labwc/autostart
+# sudo chmod +x /etc/xdg/labwc/autostart
+# sudo chown -R root:root /usr/share/icons/xcursor-transparent
 
 echo ""
 echo "✅ Build completed successfully!"
