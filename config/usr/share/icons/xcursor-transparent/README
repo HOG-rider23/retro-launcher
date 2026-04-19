@@ -1,0 +1,44 @@
+XCursor Transparent Theme Readme. - Matthew Allum 2003
+======
+
+Introduction
+======
+
+This package contains a totally transparent X11 Cursor theme. Using
+the theme provides an effective and flexible way to hide the X11
+Cursor. This kind of behaviour maybe required on Handheld computers
+running the X Window System.
+
+
+Usage
+======
+
+For the theme to work you need an XServer with the XCursor Extension
+support and the XCursor client library. XFree86 4.3 or above provides
+these dependencies.
+
+Firstly build and install the package ( ./configure; make; make install ).
+
+Then to set the cursor theme to be the default, you need to create an
+index.theme file which will be read by the XCursor library. The file
+informs XCursor what theme to use.
+
+Create the file "~/.icons/default/index.theme" with the following 
+contents;
+
+[Icon Theme]
+Inherits=xcursor-transparent
+
+
+If you set a configure --prefix to anything other than /usr, you may
+then need to do a; 
+
+   ln -s $PREFIX/share/icons/xcursor-transparent ~/.icons/xcursor-transparent  
+
+Where $PREFIX is what ever you used for the configure --prefix. 
+
+You will then need to restart X for the cursor to take effect. 
+
+
+Also see http://www.cs.umn.edu/help/linux/xcursor.html for more infomation. 
+

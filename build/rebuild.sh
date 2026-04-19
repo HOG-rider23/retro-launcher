@@ -60,6 +60,8 @@ git pull --ff-only origin "$BRANCH"
 
 # mouse configuraction
 sudo mkdir -p /etc/xdg/labwc
+sudo mkdir -p /usr/share/icons
+cp -Rp "$PROJECT_DIR/config/usr/share/icons/xcursor-transparent" /usr/share/icons/
 
 # 3. Update config files
 echo "→ Updating configuration files..."
@@ -69,6 +71,7 @@ update_config_file "$PROJECT_DIR/config/boot/firmware/cmdline.txt" "/boot/firmwa
 update_config_file "$PROJECT_DIR/config/etc/udev/rules.d/99-waveshare-touch.rules" "/etc/udev/rules.d/99-waveshare-touch.rules"
 update_config_file "$PROJECT_DIR/config/etc/xdg/labwc/rc.xml" "/etc/xdg/labwc/rc.xml"
 update_config_file "$PROJECT_DIR/config/etc/xdg/labwc/autostart" "/etc/xdg/labwc/autostart"
+update_config_file "$PROJECT_DIR/config/etc/xdg/labwc/environment" "/etc/xdg/labwc/environment"
 
 rm -rf "$INSTALL_DIRECTORY"/*
 
